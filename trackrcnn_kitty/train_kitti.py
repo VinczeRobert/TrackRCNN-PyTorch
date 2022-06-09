@@ -2,9 +2,7 @@ import torch
 
 from torchvision.transforms import ToTensor, RandomHorizontalFlip, Compose
 
-from finetune_pretrained_model import get_model_instance_segmentation
 from trackrcnn_kitty.kitti_seg_track_dataset import KITTISegTrackDataset
-from trackrcnn_kitty.resnet_101_temporally_extended import get_resnet101_backbone
 from trackrcnn_kitty.track_rcnn_model import TrackRCNN
 from references.detection.engine import train_one_epoch
 from references.detection.utils import collate_fn

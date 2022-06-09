@@ -4,8 +4,7 @@ from collections import OrderedDict
 import numpy as np
 import torch.jit
 import torchvision
-from torch import nn, Tensor, where, split, reshape, cat, squeeze, stack, eq, masked_select, div, logical_not, max, \
-    min, tensor, sum
+from torch import nn, Tensor, where, split, reshape, cat, squeeze, stack
 from torch.nn import Conv3d
 from torchvision.models.detection.faster_rcnn import TwoMLPHead, FastRCNNPredictor
 from torchvision.models.detection.mask_rcnn import MaskRCNNHeads, MaskRCNNPredictor
@@ -15,7 +14,7 @@ from torchvision.models.detection.transform import GeneralizedRCNNTransform
 from torchvision.ops import misc as misc_nn_ops, MultiScaleRoIAlign, FeaturePyramidNetwork
 from torchvision.ops.feature_pyramid_network import LastLevelMaxPool
 
-from trackrcnn_kitty.utils import as_numpy
+from trackrcnn_kitty.losses import compute_association_loss
 
 
 class TrackRCNN(nn.Module):
@@ -205,11 +204,12 @@ class TrackRCNN(nn.Module):
         associations = self.association_head(stacked_boxes)
 
         # compute association loss
-        association_loss = self.__compute_association_loss(associations, targets)
+        association_loss = compute_association_loss(associations, targets)
 
         losses = {}
         losses.update(detector_losses)
         losses.update(proposel_losses)
+        losses.update({"association_loss": torch.tensor(association_loss)})
 
         if torch.jit.is_scripting():
             if not self._has_warned:
@@ -291,61 +291,3 @@ class TrackRCNN(nn.Module):
 
         return curr_features
 
-    @staticmethod
-    def __compute_associations_loss_for_detection(detection_id, detection_distances, detection_ids_axis_0,
-                                                  detection_ids_axis_1):
-        detection_id_mask_axis_0 = eq(detection_ids_axis_0, detection_id)
-        detection_id_mask_axis_1 = eq(detection_ids_axis_1, detection_id)
-        distances_for_current_detection = detection_distances * detection_id_mask_axis_0.int().float()
-        all_detections_class_ids = div(detection_ids_axis_1, 1000, rounding_mode='floor')
-        current_detection_class_id = div(detection_id, 1000, rounding_mode='floor')
-        detection_id_by_class_mask = eq(all_detections_class_ids, current_detection_class_id)
-        distances_for_current_detection = masked_select(distances_for_current_detection, detection_id_by_class_mask)
-        detection_id_mask_axis_1 = masked_select(detection_id_mask_axis_1, detection_id_by_class_mask)
-
-        same_ids = masked_select(distances_for_current_detection, detection_id_mask_axis_1)
-        different_ids = masked_select(distances_for_current_detection, logical_not(detection_id_mask_axis_1))
-
-        hard_pos = max(same_ids)
-        hard_neg = min(different_ids)
-
-        if len(same_ids) > 0 and len(different_ids) > 0:
-
-            margin = 0.2
-            hard_pos = np.asscalar(as_numpy(hard_pos))
-            hard_neg = np.asscalar(as_numpy(hard_neg))
-            triplet_loss = margin + hard_pos - hard_neg
-            loss = triplet_loss if triplet_loss > 0 else 0
-            # normalization = len(loss)
-
-            return loss, 1
-        else:
-            return 0, 1
-
-    @staticmethod
-    def __compute_association_loss(associations, targets):
-        # Create a tensor of dim (D), D being the number of detections
-        all_detection_ids = []
-        for target in targets:
-            all_detection_ids.append(target['object_ids'])
-        all_detection_ids = cat(all_detection_ids, dim=0)
-
-        # associations is a tensor of dim (D, 128), D being the number of detections
-        # compute euclidean distance between every pair of detections from this batch
-        detection_distances = torch.cdist(associations, associations)
-
-        unique_detection_ids = torch.unique(all_detection_ids)
-
-        loss = 0
-        normalization = 0
-        for detection_id in unique_detection_ids:
-            loss_per_id, normalization_per_id = TrackRCNN.__compute_associations_loss_for_detection(detection_id,
-                                                                                                    detection_distances,
-                                                                                                    all_detection_ids,
-                                                                                                    all_detection_ids)
-            loss += loss_per_id
-            normalization += normalization_per_id
-
-        loss = loss / normalization
-
-        return loss
