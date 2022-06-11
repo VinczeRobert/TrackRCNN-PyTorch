@@ -20,7 +20,11 @@ def compute_association_loss_for_detection(curr_det_id, dst_matrix, dets_axis_0,
 
     # Reduce the distance matrix to keep only the distances between objects
     # for which obj_id = curr_det_id
-    sliced_dst_matrix = dst_matrix[mask_axis_0].T
+    try:
+        sliced_dst_matrix = dst_matrix[mask_axis_0].T
+        # TODO: Need to check why this can cause an exception
+    except IndexError:
+        return 0, 1
 
     # Get a list of the classes of each detection
     detection_classes = torch.div(dets_axis_1, 1000, rounding_mode='floor')

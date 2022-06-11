@@ -1,7 +1,7 @@
 import os
 import numpy as np
 import torch
-from PIL import Image # pip install pillow
+from PIL import Image
 from torch.utils.data import Dataset
 
 
@@ -15,7 +15,7 @@ class KITTISegTrackDataset(Dataset):
         self.targets = []
 
         self.__build_list()
-        print('what')
+        print('Reading data is completed...')
 
     def __getitem__(self, idx):
         # load images and targets
@@ -32,7 +32,6 @@ class KITTISegTrackDataset(Dataset):
         masks = torch.as_tensor(masks, dtype=torch.uint8)
 
         target["masks"] = masks
-
         image_id = torch.tensor([idx])
         target["image_id"] = image_id
 
@@ -83,14 +82,12 @@ class KITTISegTrackDataset(Dataset):
 
                     area = (xmax - xmin) * (ymax - ymin)
 
+                    # ignore bounding boxes whit area=0
                     if area > 0:
                         boxes.append([xmin, ymin, xmax, ymax])
                         areas.append(area)
                     else:
                         num_objs = num_objs - 1
-
-                # convert everything into a torch.Tensor
-                boxes = torch.as_tensor(boxes, dtype=torch.float32)
 
                 # there are two classes (excluding background)
                 # we can get the class of an object by doing
@@ -101,6 +98,8 @@ class KITTISegTrackDataset(Dataset):
                 for obj_id in obj_ids:
                     labels.append(obj_id // 1000)
 
+                # Convert everything into a tensor
+                boxes = torch.as_tensor(boxes, dtype=torch.float32)
                 labels = torch.as_tensor(labels, dtype=torch.int64)
                 object_ids = torch.as_tensor(obj_ids, dtype=torch.int64)
 

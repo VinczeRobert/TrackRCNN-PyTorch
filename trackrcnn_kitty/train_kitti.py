@@ -7,12 +7,10 @@ from trackrcnn_kitty.track_rcnn_model import TrackRCNN
 from references.detection.engine import train_one_epoch
 from references.detection.utils import collate_fn
 
-from copy import  deepcopy
 
-
-def get_transform(train):
+def get_transform(train, do_h_flip=False):
     transforms = [ToTensor()]
-    if train:
+    if train and do_h_flip:
         transforms.append(RandomHorizontalFlip(0.5))
 
     return Compose(transforms)
@@ -28,13 +26,6 @@ if __name__ == '__main__':
 
     # use our dataset and defined transformations
     dataset = KITTISegTrackDataset("D://Robert//KITTITrackSegDataset", get_transform(True))
-    dataset_test = deepcopy(dataset)
-    dataset_test.transforms = get_transform(False)
-
-    # split the dataset in train and test set
-    indices = torch.randperm(len(dataset)).tolist()
-    dataset = torch.utils.data.Subset(dataset, indices[:-1000])
-    # dataset_test = torch.utils.data.Subset(dataset_test, indices[-1000:])
 
     # define training and validation data loaders
     data_loader = torch.utils.data.DataLoader(
@@ -42,32 +33,26 @@ if __name__ == '__main__':
         collate_fn=collate_fn
     )
 
-    # data_loader_test = torch.utils.data.DataLoader(
-    #    dataset_test, batch_size=1, shuffle=False, num_workers=4,
-    #    collate_fn=collate_fn
-    # )
-
-    model = TrackRCNN(num_classes=num_classes, device=device)
-    # model = get_model_instance_segmentation(num_classes)
+    model = TrackRCNN(num_classes=num_classes)
     model.to(device)
 
     # construct an optimizer
     params = [p for p in model.parameters() if p.requires_grad]
-    optimizer = torch.optim.SGD(params, lr=0.005, momentum=0.9, weight_decay=0.0005)
+    optimizer = torch.optim.SGD(params, lr=0.0000005)
 
     # and a learning rate scheduler
-    lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer,
-                                                   step_size=3,
-                                                   gamma=0.1)
+    # lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer,
+    #                                                step_size=3,
+    #                                                gamma=0.1)
 
-    # let's train it fo 10 epochs
-    num_epochs = 10
+    # let's train it for epochs as in the paper
+    num_epochs = 40
 
     for epoch in range(num_epochs):
         # train for one epoch, printing every 10 iterations
         train_one_epoch(model, optimizer, data_loader, device, epoch, print_freq=10)
         # update the learning rate
-        lr_scheduler.step()
+        # lr_scheduler.step()
 
     checkpoint = {
         "epoch": num_epochs,
@@ -75,6 +60,6 @@ if __name__ == '__main__':
         "optim_state": optimizer.state_dict()
     }
 
-    torch.save(checkpoint, "mask_rcnn_kitty.pth")
+    torch.save(checkpoint, "mask_trackrcnn_kitty.pth")
 
     print("That's it! Training is complete!")

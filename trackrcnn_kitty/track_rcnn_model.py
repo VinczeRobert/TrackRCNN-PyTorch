@@ -1,24 +1,22 @@
 import warnings
 from collections import OrderedDict
 
-import numpy as np
 import torch.jit
 import torchvision
-from torch import nn, Tensor, where, split, reshape, cat, squeeze, stack
-from torch.nn import Conv3d
-from torchvision.models.detection.faster_rcnn import TwoMLPHead, FastRCNNPredictor
-from torchvision.models.detection.mask_rcnn import MaskRCNNHeads, MaskRCNNPredictor
-from torchvision.models.detection.roi_heads import RoIHeads
-from torchvision.models.detection.rpn import AnchorGenerator, RPNHead, RegionProposalNetwork
+from torch import nn, Tensor
 from torchvision.models.detection.transform import GeneralizedRCNNTransform
-from torchvision.ops import misc as misc_nn_ops, MultiScaleRoIAlign, FeaturePyramidNetwork
+from torchvision.ops import misc as misc_nn_ops, FeaturePyramidNetwork
 from torchvision.ops.feature_pyramid_network import LastLevelMaxPool
 
+from trackrcnn_kitty.layers import SepConvTemp3D
 from trackrcnn_kitty.losses import compute_association_loss
+from trackrcnn_kitty.region_proposal_network_creator import RegionProposalNetworkCreator
+from trackrcnn_kitty.roi_heads_creator import RoIHeadsCreator
+from trackrcnn_kitty.utils import check_for_degenerate_boxes, validate_and_build_stacked_boxes
 
 
 class TrackRCNN(nn.Module):
-    def __init__(self, num_classes, device):
+    def __init__(self, num_classes, backbone_output_dim=2048, batch_size=4):
         super(TrackRCNN, self).__init__()
         # Create a Transform object which will be responsible on applying transformations on the image
         # These parameters are taken from Pytorch code
@@ -28,11 +26,10 @@ class TrackRCNN(nn.Module):
         image_std = [0.229, 0.224, 0.225]
         self.transform = GeneralizedRCNNTransform(min_size, max_size, image_mean, image_std)
 
-        # We create the backbone: we'll use a Resnet101
+        # We create the backbone: we'll use a pretrained Resnet101
         # that has been trained on the COCO dataset
         resnet101 = torchvision.models.resnet101(pretrained=True, norm_layer=misc_nn_ops.FrozenBatchNorm2d)
         self.backbone = resnet101
-        # For now we are not going to use BackbonewithFPN, but we might later
 
         # Initialize Feature Pyramid Network
         self.fpn = FeaturePyramidNetwork(
@@ -42,112 +39,33 @@ class TrackRCNN(nn.Module):
         )
 
         # We create our two depth-wise separable Conv3D layers
-
-        self.conv_temp1_depth_wise = [Conv3d(in_channels=1, kernel_size=(3, 3, 3), out_channels=1, padding=(1, 1, 1),
-                                             device=device)] * 2048
-        filter_initializer = np.zeros([1, 1, 3, 3, 3], dtype=np.float32)
-        filter_size = [3, 3, 3]
-        filter_initializer[0, 0, :, int(filter_size[1] / 2.0), int(filter_size[2] / 2.0)] = 1.0 / filter_size[0]
-        for layer in self.conv_temp1_depth_wise:
-            with torch.no_grad():
-                layer.weight = nn.Parameter(torch.as_tensor(filter_initializer, device=device))
-
-        point_wise_weights = np.zeros([2048, 2048, 1, 1, 1], dtype=np.float32)
-        for i in range(2048):
-            point_wise_weights[i, i, :, :, :] = 1.0
-        self.conv_temp1_point_wise = Conv3d(in_channels=2048, kernel_size=(1, 1, 1), out_channels=2048, device=device)
-        with torch.no_grad():
-            self.conv_temp1_point_wise.weight = nn.Parameter(torch.as_tensor(point_wise_weights, device=device))
-
-        self.conv_temp2_depth_wise = [Conv3d(in_channels=1, kernel_size=(3, 3, 3), out_channels=1, padding=(1, 1, 1),
-                                             device=device)] * 2048
-        for layer in self.conv_temp2_depth_wise:
-            with torch.no_grad():
-                layer.weight = nn.Parameter(torch.as_tensor(filter_initializer, device=device))
-        self.conv_temp2_point_wise = Conv3d(in_channels=2048, kernel_size=(1, 1, 1), out_channels=2048, device=device)
-        with torch.no_grad():
-            self.conv_temp1_point_wise.weight = nn.Parameter(torch.as_tensor(point_wise_weights, device=device))
+        conv3d_parameters_1 = {
+            "in_channels": 1,
+            "kernel_size": (3, 3, 3),  # value used by the authors of TrackRCNN for the Conv3d layers
+            "out_channels": 1,
+            "padding": (1, 1, 1)
+        }
+        conv3d_parameters_2 = {
+            "in_channels": backbone_output_dim,
+            "kernel_size": (1, 1, 1),
+            "out_channels": backbone_output_dim,
+            "padding": None
+        }
+        self.conv3d_temp_1 = SepConvTemp3D(conv3d_parameters_1, conv3d_parameters_2, backbone_output_dim)
+        self.conv3d_temp_2 = SepConvTemp3D(conv3d_parameters_1, conv3d_parameters_2, backbone_output_dim)
 
         self.relu = nn.ReLU()
 
         # Create the region proposal network
-        anchor_sizes = ((32,), (64,), (128,), (256,), (512,), (512,), (512,))
-        aspect_ratios = ((0.5, 1.0, 2.0),) * len(anchor_sizes)
-        rpn_anchor_generator = AnchorGenerator(anchor_sizes, aspect_ratios)
-
-        rpn_head = RPNHead(256, rpn_anchor_generator.num_anchors_per_location()[0])
-        rpn_fg_iou_thresh = 0.7
-        rpn_bg_iou_thresh = 0.3
-        rpn_batch_size_per_image = 256
-        rpn_positive_fraction = 0.5
-        rpn_pre_nms_top_n = {'training': 2000, 'testing': 1000}
-        rpn_post_nms_top_n = {'training': 2000, 'testing': 1000}
-        rpn_nms_thresh = 0.7
-        rpn_score_thresh = 0.0
-        self.rpn = RegionProposalNetwork(
-            rpn_anchor_generator,
-            rpn_head,
-            rpn_fg_iou_thresh,
-            rpn_bg_iou_thresh,
-            rpn_batch_size_per_image,
-            rpn_positive_fraction,
-            rpn_pre_nms_top_n,
-            rpn_post_nms_top_n,
-            rpn_nms_thresh,
-            score_thresh=rpn_score_thresh
-
-        )
+        self.rpn = RegionProposalNetworkCreator().get_instance()
 
         # Create RoI heads
-        mask_roi_pool = MultiScaleRoIAlign(featmap_names=["0", "1", "2", "3"], output_size=14, sampling_ratio=2)
-
-        mask_layers = (256, 256, 256, 256)
-        mask_dilation = 1
-        mask_head = MaskRCNNHeads(256, mask_layers, mask_dilation)
-
-        mask_predictor_in_channels = 256
-        mask_dim_reduced = 256
-        mask_predictor = MaskRCNNPredictor(mask_predictor_in_channels, mask_dim_reduced, num_classes)
-
-        box_roi_pool = MultiScaleRoIAlign(featmap_names=["0", "1", "2", "3"], output_size=7, sampling_ratio=2)
-
-        resolution = box_roi_pool.output_size[0]
-        representation_size = 1024
-        box_head = TwoMLPHead(256 * resolution ** 2, representation_size)
-
-        representation_size = 1024
-        box_predictor = FastRCNNPredictor(representation_size, num_classes)
-
-        box_fg_iou_thresh = 0.5
-        box_bg_iou_thresh = 0.5
-        box_batch_size_per_image = 512
-        box_positive_fraction = 0.25
-        bbox_reg_weights = None
-        box_score_thresh = 0.05
-        box_nms_thresh = 0.5
-        box_detections_per_img = 100
-        self.roi_heads = RoIHeads(
-            box_roi_pool,
-            box_head,
-            box_predictor,
-            box_fg_iou_thresh,
-            box_bg_iou_thresh,
-            box_batch_size_per_image,
-            box_positive_fraction,
-            bbox_reg_weights,
-            box_score_thresh,
-            box_nms_thresh,
-            box_detections_per_img,
-        )
-
-        self.roi_heads.mask_roi_pool = mask_roi_pool
-        self.roi_heads.mask_head = mask_head
-        self.roi_heads.mask_predictor = mask_predictor
+        self.roi_heads = RoIHeadsCreator(num_classes).get_instance()
 
         # Finally we create the new association head, which is basically a fully connected layer
-        # the number of inputs is equal to the number of regions proposed by the RPN
+        # the number of inputs is equal to the number of detections
         # and the number of outputs was set by the authors to 128
-        self.association_head = nn.Linear(in_features=4, out_features=128)
+        self.association_head = nn.Linear(in_features=batch_size, out_features=128)
 
         # used only on torchscript mode
         self._has_warned = False
@@ -156,23 +74,8 @@ class TrackRCNN(nn.Module):
         if self.training and targets is None:
             raise ValueError("In training mode, targets should be passed")
 
-        # needed for the association head
-        stacked_boxes = []
+        stacked_boxes = validate_and_build_stacked_boxes(targets)
 
-        if self.training:
-            assert targets is not None
-            for target in targets:
-                boxes = target["boxes"]
-                if isinstance(boxes, Tensor):
-                    if len(boxes.shape) != 2 or boxes.shape[-1] != 4:
-                        if len(boxes.shape) != 2 or boxes.shape[-1] != 4:
-                            raise ValueError(
-                                f"Expected target boxes to be a tensor of shape [N, 4], got {boxes.shape}.")
-                else:
-                    raise ValueError(f"Expected target boxes to be of type Tensor, got {type(boxes)}.")
-
-                stacked_boxes.extend(boxes)
-        stacked_boxes = stack(stacked_boxes)
         original_image_sizes = []
         for img in images:
             val = img.shape[-2:]
@@ -180,15 +83,17 @@ class TrackRCNN(nn.Module):
             original_image_sizes.append((val[0], val[1]))
 
         images, targets = self.transform(images, targets)
-        self.__check_for_degenerate_boxes(targets)
+        check_for_degenerate_boxes(targets)
 
         # Run the images through the backbone (resnet101)
         feature_dict, features = self.__forward_backbone(images.tensors)
 
         # The next step is to send our features through our Conv3D layers
-        features = self.__forward_separable_conv3d(features, self.conv_temp1_depth_wise, self.conv_temp1_point_wise)
+        features = self.conv3d_temp_1.forward(features)
+        features = self.relu(features)
         feature_dict['4'] = features
-        features = self.__forward_separable_conv3d(features, self.conv_temp2_depth_wise, self.conv_temp2_point_wise)
+        features = self.conv3d_temp_2.forward(features)
+        features = self.relu(features)
         feature_dict['5'] = features
 
         feature_dict = self.fpn(feature_dict)
@@ -226,22 +131,6 @@ class TrackRCNN(nn.Module):
 
         return detections
 
-    # For a valid box the height and width have to be positive numbers
-    @staticmethod
-    def __check_for_degenerate_boxes(targets):
-        if targets is not None:
-            for target_idx, target in enumerate(targets):
-                boxes = target["boxes"]
-                degenerate_boxes = boxes[:, 2:] <= boxes[:, :2]
-                if degenerate_boxes.any():
-                    # print the first degenerate box
-                    bb_idx = where(degenerate_boxes.any(dim=1))[0][0]
-                    degen_bb = boxes[bb_idx].tolist()
-                    raise ValueError(
-                        "All bounding boxes should have positive height and width."
-                        f" Found invalid box {degen_bb} for target at index {target_idx}."
-                    )
-
     def __forward_backbone(self, x):
         x = self.backbone.conv1(x)
         x = self.backbone.bn1(x)
@@ -260,34 +149,3 @@ class TrackRCNN(nn.Module):
         out['3'] = x
 
         return out, x
-
-    def __forward_separable_conv3d(self, features, conv_temp_depth_wise_layers, conv_temp_point_wise_layer):
-        no_features = features.shape[1]
-
-        # Introduce a fake "batch dimension", previous dimension becomes time
-        # -1 means to preserve the current dim
-        curr_features = features.expand(1, -1, -1, -1, -1)
-        curr_features = reshape(curr_features, (curr_features.shape[0], curr_features.shape[2], curr_features.shape[1],
-                                                curr_features.shape[3], curr_features.shape[4]))
-
-        # In the following part we will do a depthwise convolution
-        curr_features = list(split(curr_features, 1, dim=1))
-
-        for channel_no in range(no_features):
-            curr_features[channel_no] = conv_temp_depth_wise_layers[channel_no](curr_features[channel_no])
-
-        # Stack the channels together
-        curr_features = cat(curr_features, dim=1)
-
-        # Now we do the pointwise convolution
-        curr_features = conv_temp_point_wise_layer(curr_features)
-
-        curr_features = self.relu(curr_features)
-
-        # Remove the fake dimension and switch no_channels and batch_size back
-        curr_features = reshape(curr_features, (curr_features.shape[0], curr_features.shape[2], curr_features.shape[1],
-                                                curr_features.shape[3], curr_features.shape[4]))
-        curr_features = squeeze(curr_features, dim=0)
-
-        return curr_features
-
