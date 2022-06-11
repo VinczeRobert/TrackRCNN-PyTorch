@@ -8,7 +8,7 @@ from torchvision.models.detection.transform import GeneralizedRCNNTransform
 from torchvision.ops import misc as misc_nn_ops, FeaturePyramidNetwork
 from torchvision.ops.feature_pyramid_network import LastLevelMaxPool
 
-from trackrcnn_kitty.layers import SepConvTemp3D
+from trackrcnn_kitty.models.layers import SepConvTemp3D
 from trackrcnn_kitty.losses import compute_association_loss
 from trackrcnn_kitty.region_proposal_network_creator import RegionProposalNetworkCreator
 from trackrcnn_kitty.roi_heads_creator import RoIHeadsCreator
@@ -16,8 +16,9 @@ from trackrcnn_kitty.utils import check_for_degenerate_boxes, validate_and_build
 
 
 class TrackRCNN(nn.Module):
-    def __init__(self, num_classes, backbone_output_dim=2048, batch_size=4):
+    def __init__(self, num_classes, backbone_output_dim=2048, batch_size=4, do_tracking=False):
         super(TrackRCNN, self).__init__()
+        self.do_tracking = do_tracking
         # Create a Transform object which will be responsible on applying transformations on the image
         # These parameters are taken from Pytorch code
         min_size = 800
@@ -33,7 +34,7 @@ class TrackRCNN(nn.Module):
 
         # Initialize Feature Pyramid Network
         self.fpn = FeaturePyramidNetwork(
-            [256, 512, 1024, 2048, 2048, 2048],
+            [256, 512, 1024, 2048],
             256,
             LastLevelMaxPool()
         )
@@ -89,12 +90,13 @@ class TrackRCNN(nn.Module):
         feature_dict, features = self.__forward_backbone(images.tensors)
 
         # The next step is to send our features through our Conv3D layers
-        features = self.conv3d_temp_1.forward(features)
-        features = self.relu(features)
-        feature_dict['4'] = features
-        features = self.conv3d_temp_2.forward(features)
-        features = self.relu(features)
-        feature_dict['5'] = features
+        if self.do_tracking:
+            features = self.conv3d_temp_1.forward(features)
+            features = self.relu(features)
+            feature_dict['4'] = features
+            features = self.conv3d_temp_2.forward(features)
+            features = self.relu(features)
+            feature_dict['5'] = features
 
         feature_dict = self.fpn(feature_dict)
 
@@ -105,16 +107,17 @@ class TrackRCNN(nn.Module):
         detections, detector_losses = self.roi_heads(feature_dict, proposals, images.image_sizes, targets)
         detections = self.transform.postprocess(detections, images.image_sizes, original_image_sizes)
 
-        # The association head gets proposals as inputs
-        associations = self.association_head(stacked_boxes)
-
-        # compute association loss
-        association_loss = compute_association_loss(associations, targets)
-
         losses = {}
         losses.update(detector_losses)
         losses.update(proposel_losses)
-        losses.update({"association_loss": torch.tensor(association_loss)})
+
+        if self.do_tracking:
+            # The association head gets proposals as inputs
+            associations = self.association_head(stacked_boxes)
+
+            # compute association loss
+            association_loss = compute_association_loss(associations, targets)
+            losses.update({"association_loss": torch.tensor(association_loss)})
 
         if torch.jit.is_scripting():
             if not self._has_warned:

@@ -9,6 +9,7 @@ class KITTISegTrackDataset(Dataset):
     def __init__(self, root_path, transforms):
         self.root_path = root_path
         self.transforms = transforms
+        self.num_classes = 3
 
         self.image_paths = []
         self.mask_paths = []

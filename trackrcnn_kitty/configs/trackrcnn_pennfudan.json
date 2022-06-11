@@ -1,0 +1,17 @@
+{
+  "dataset": "PennFudan",
+  "dataset_path": "D:\\Robert\\PennFudanPed",
+  "image_size": [309, 1024],
+  "image_transforms": ["flip"],
+  "shuffle": true,
+
+  "batch_size": 4,
+  "learning_rate": 0.0000005,
+  "num_epochs": 10,
+  "momentum": 0.9,
+  "weight_decay": 0.0005,
+  "add_lr_scheduler": true,
+
+  "add_associations": false,
+  "weights_path": "penn_fudan.pth"
+}
