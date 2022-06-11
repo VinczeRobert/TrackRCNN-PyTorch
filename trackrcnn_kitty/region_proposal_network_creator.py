@@ -4,7 +4,7 @@ from torchvision.models.detection.rpn import RPNHead, RegionProposalNetwork
 
 class RegionProposalNetworkCreator:
     def __init__(self):
-        anchor_sizes = ((32,), (64,), (128,), (256,), (512,), (512,), (512,))
+        anchor_sizes = ((32,), (64,), (128,), (256,), (512,))
         aspect_ratios = ((0.5, 1.0, 2.0),) * len(anchor_sizes)
         rpn_anchor_generator = AnchorGenerator(anchor_sizes, aspect_ratios)
 

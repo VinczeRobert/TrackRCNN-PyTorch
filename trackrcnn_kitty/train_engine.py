@@ -11,6 +11,7 @@ from trackrcnn_kitty.datasets.transforms import get_transforms
 class TrainEngine:
     def __init__(self, config_path):
         self.device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+        torch.cuda.empty_cache()
         self.config = JSONConfig.get_instance(config_path)
 
         transforms = get_transforms(self.config.transforms_list)

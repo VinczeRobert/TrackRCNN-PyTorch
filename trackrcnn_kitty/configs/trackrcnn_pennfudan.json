@@ -5,7 +5,7 @@
   "image_transforms": ["flip"],
   "shuffle": true,
 
-  "batch_size": 4,
+  "batch_size": 2,
   "learning_rate": 0.0000005,
   "num_epochs": 10,
   "momentum": 0.9,

@@ -59,13 +59,13 @@ class PennFudanDataset(Dataset):
         # suppose all instances are not crowd
         is_crowd = torch.zeros((num_objs,), dtype=torch.int64)
 
-        target = {"boxes": boxes, "labels": labels, "masks": masks, "image_id": image_id, "area": area,
+        targets = {"boxes": boxes, "labels": labels, "masks": masks, "image_id": image_id, "area": area,
                   "iscrowd": is_crowd}
 
         if self.transforms is not None:
-            img = self.transforms(img)
+            img, targets = self.transforms(img, targets)
 
-        return img, target
+        return img, targets
 
     def __len__(self):
         return len(self.imgs)
