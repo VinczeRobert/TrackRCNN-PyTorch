@@ -1,0 +1,20 @@
+{
+  "dataset": "KITTISegTrack",
+  "dataset_path": "D:\\Robert\\KITTITrackSegDataset",
+  "image_size": [309, 1024],
+  "image_transforms": ["flip"],
+  "shuffle": false,
+
+  "batch_size": 4,
+  "learning_rate": 0.0000005,
+  "num_epochs": 10,
+  "momentum": 0,
+  "weight_decay": 0,
+  "add_lr_scheduler": false,
+
+  "add_associations": false,
+  "weights_path": "kitty.pth",
+
+  "use_resnet_101": false,
+  "train_last_layer": false
+}

@@ -6,12 +6,15 @@
   "shuffle": true,
 
   "batch_size": 2,
-  "learning_rate": 0.0000005,
+  "learning_rate": 0.005,
   "num_epochs": 10,
   "momentum": 0.9,
   "weight_decay": 0.0005,
   "add_lr_scheduler": true,
 
   "add_associations": false,
-  "weights_path": "penn_fudan.pth"
+  "weights_path": "penn_fudan.pth",
+
+  "use_resnet_101": false,
+  "train_last_layer": false
 }

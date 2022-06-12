@@ -2,42 +2,30 @@ import warnings
 from collections import OrderedDict
 
 import torch.jit
-import torchvision
-from torch import nn, Tensor
-from torchvision.models.detection.transform import GeneralizedRCNNTransform
-from torchvision.ops import misc as misc_nn_ops, FeaturePyramidNetwork
-from torchvision.ops.feature_pyramid_network import LastLevelMaxPool
-
-from trackrcnn_kitty.models.layers import SepConvTemp3D
+from torch import Tensor
+from torch.hub import load_state_dict_from_url
+from torchvision.models.detection import MaskRCNN
+from torchvision.models.detection._utils import overwrite_eps
+from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
+from torchvision.models.detection.mask_rcnn import MaskRCNNPredictor
 from trackrcnn_kitty.losses import compute_association_loss
-from trackrcnn_kitty.region_proposal_network_creator import RegionProposalNetworkCreator
-from trackrcnn_kitty.roi_heads_creator import RoIHeadsCreator
 from trackrcnn_kitty.utils import check_for_degenerate_boxes, validate_and_build_stacked_boxes
 
 
-class TrackRCNN(nn.Module):
-    def __init__(self, num_classes, backbone_output_dim=2048, batch_size=4, do_tracking=False):
-        super(TrackRCNN, self).__init__()
+model_urls = {
+    "maskrcnn_resnet50_fpn_coco": "https://download.pytorch.org/models/maskrcnn_resnet50_fpn_coco-bf2d0c1e.pth",
+}
+
+
+class TrackRCNN(MaskRCNN):
+    def __init__(self, num_classes, backbone, do_tracking, batch_size, **kwargs):
+        super(TrackRCNN, self).__init__(backbone, 91, **kwargs)
+        state_dict = load_state_dict_from_url(model_urls["maskrcnn_resnet50_fpn_coco"], progress=True)
+        self.load_state_dict(state_dict)
+        overwrite_eps(self, 0.0)
         self.do_tracking = do_tracking
-        # Create a Transform object which will be responsible on applying transformations on the image
-        # These parameters are taken from Pytorch code
-        min_size = 800
-        max_size = 1333
-        image_mean = [0.485, 0.456, 0.406]
-        image_std = [0.229, 0.224, 0.225]
-        self.transform = GeneralizedRCNNTransform(min_size, max_size, image_mean, image_std)
-
-        # We create the backbone: we'll use a pretrained Resnet101
-        # that has been trained on the COCO dataset
-        resnet101 = torchvision.models.resnet101(pretrained=True, norm_layer=misc_nn_ops.FrozenBatchNorm2d)
-        self.backbone = resnet101
-
-        # Initialize Feature Pyramid Network
-        self.fpn = FeaturePyramidNetwork(
-            [256, 512, 1024, 2048],
-            256,
-            LastLevelMaxPool()
-        )
+        self.finetune(num_classes)
+        backbone_output_dim = 1024 # TODO: don't hardcode this
 
         # We create our two depth-wise separable Conv3D layers
         conv3d_parameters_1 = {
@@ -52,24 +40,30 @@ class TrackRCNN(nn.Module):
             "out_channels": backbone_output_dim,
             "padding": None
         }
-        self.conv3d_temp_1 = SepConvTemp3D(conv3d_parameters_1, conv3d_parameters_2, backbone_output_dim)
-        self.conv3d_temp_2 = SepConvTemp3D(conv3d_parameters_1, conv3d_parameters_2, backbone_output_dim)
+        # self.conv3d_temp_1 = SepConvTemp3D(conv3d_parameters_1, conv3d_parameters_2, backbone_output_dim)
+        # self.conv3d_temp_2 = SepConvTemp3D(conv3d_parameters_1, conv3d_parameters_2, backbone_output_dim)
 
-        self.relu = nn.ReLU()
-
-        # Create the region proposal network
-        self.rpn = RegionProposalNetworkCreator().get_instance()
-
-        # Create RoI heads
-        self.roi_heads = RoIHeadsCreator(num_classes).get_instance()
+        # self.relu = nn.ReLU()
 
         # Finally we create the new association head, which is basically a fully connected layer
         # the number of inputs is equal to the number of detections
         # and the number of outputs was set by the authors to 128
-        self.association_head = nn.Linear(in_features=batch_size, out_features=128)
+        # self.association_head = nn.Linear(in_features=batch_size, out_features=128)
 
         # used only on torchscript mode
         self._has_warned = False
+
+    def finetune(self, num_classes):
+        # get number of input features for the classifier
+        in_features = self.roi_heads.box_predictor.cls_score.in_features
+        # replace the pre-trained head with a new one
+        self.roi_heads.box_predictor = FastRCNNPredictor(in_features, num_classes)
+
+        # now get the number of input features for the mask classifier
+        in_features_mask = self.roi_heads.mask_predictor.conv5_mask.in_channels
+        hidden_layer = 256
+        # and replace the mask predictor with a new one
+        self.roi_heads.mask_predictor = MaskRCNNPredictor(in_features_mask, hidden_layer, num_classes)
 
     def forward(self, images, targets=None):
         if self.training and targets is None:
@@ -87,18 +81,18 @@ class TrackRCNN(nn.Module):
         check_for_degenerate_boxes(targets)
 
         # Run the images through the backbone (resnet101)
-        feature_dict, features = self.__forward_backbone(images.tensors)
+        feature_dict = self.backbone(images.tensors)
 
         # The next step is to send our features through our Conv3D layers
         if self.do_tracking:
-            features = self.conv3d_temp_1.forward(features)
+            features = self.conv3d_temp_1.forward(feature_dict["pool"]) # DON'T HARDCODE THIS
             features = self.relu(features)
-            feature_dict['4'] = features
+            feature_dict[str(len(feature_dict) + 1)] = features
             features = self.conv3d_temp_2.forward(features)
             features = self.relu(features)
-            feature_dict['5'] = features
+            feature_dict[len(feature_dict) + 1] = features
 
-        feature_dict = self.fpn(feature_dict)
+        # feature_dict = self.fpn(feature_dict)
 
         if isinstance(feature_dict, Tensor):
             feature_dict = OrderedDict([("0", feature_dict)])
@@ -133,22 +127,3 @@ class TrackRCNN(nn.Module):
             return losses
 
         return detections
-
-    def __forward_backbone(self, x):
-        x = self.backbone.conv1(x)
-        x = self.backbone.bn1(x)
-        x = self.backbone.relu(x)
-        x = self.backbone.maxpool(x)
-
-        out = OrderedDict()
-
-        x = self.backbone.layer1(x)
-        out['0'] = x
-        x = self.backbone.layer2(x)
-        out['1'] = x
-        x = self.backbone.layer3(x)
-        out['2'] = x
-        x = self.backbone.layer4(x)
-        out['3'] = x
-
-        return out, x

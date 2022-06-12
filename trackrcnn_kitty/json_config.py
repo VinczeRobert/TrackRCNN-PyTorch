@@ -24,6 +24,9 @@ class JSONConfig:
         self.add_associations = data["add_associations"]
         self.weights_path = data["weights_path"]
 
+        self.use_resnet_101 = data["use_resnet_101"]
+        self.train_last_layer = data["train_last_layer"]
+
     @staticmethod
     def get_instance(path):
         try:

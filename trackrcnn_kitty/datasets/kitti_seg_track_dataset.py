@@ -37,7 +37,7 @@ class KITTISegTrackDataset(Dataset):
         target["image_id"] = image_id
 
         if self.transforms is not None:
-            image = self.transforms(image)
+            image, target = self.transforms(image, target)
 
         return image, target
 
@@ -101,6 +101,7 @@ class KITTISegTrackDataset(Dataset):
 
                 # Convert everything into a tensor
                 boxes = torch.as_tensor(boxes, dtype=torch.float32)
+                areas = torch.as_tensor(areas, dtype=torch.float32)
                 labels = torch.as_tensor(labels, dtype=torch.int64)
                 object_ids = torch.as_tensor(obj_ids, dtype=torch.int64)
 
@@ -110,6 +111,7 @@ class KITTISegTrackDataset(Dataset):
                 # Suppose all instances are not crowd
                 self.targets.append({
                     "boxes": boxes,
+                    "area": areas,
                     "labels": labels,
                     "object_ids": object_ids,
                     "iscrowd": is_crowd
