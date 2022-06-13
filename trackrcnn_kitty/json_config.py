@@ -12,9 +12,9 @@ class JSONConfig:
         self.dataset_path = data["dataset_path"]
         self.image_size = data["image_size"]
         self.transforms_list = data["image_transforms"]
-        self.shuffle = data["shuffle"]
 
-        self.batch_size = data["batch_size"]
+        self.train_batch_size = data["train_batch_size"]
+        self.test_batch_size = data["test_batch_size"]
         self.learning_rate = data["learning_rate"]
         self.num_epochs = data["num_epochs"]
         self.momentum = data["momentum"]
@@ -26,6 +26,9 @@ class JSONConfig:
 
         self.use_resnet_101 = data["use_resnet_101"]
         self.train_last_layer = data["train_last_layer"]
+
+        # task can be 1. train, 2.val, 3.train+val 4.save_preds
+        self.task = data["task"]
 
     @staticmethod
     def get_instance(path):

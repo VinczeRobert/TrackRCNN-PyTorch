@@ -8,4 +8,5 @@ if __name__ == '__main__':
     assert os.path.exists(sys.argv[1]), "Config file is invalid"
 
     train_engine = TrainEngine(config_path=sys.argv[1])
-    train_engine.run_training()
+    train_engine.evaluate_and_save_results("predictions/PennFudan")
+

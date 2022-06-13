@@ -6,11 +6,12 @@ from torch import Tensor
 from torch.hub import load_state_dict_from_url
 from torchvision.models.detection import MaskRCNN
 from torchvision.models.detection._utils import overwrite_eps
+from torchvision.models.detection.anchor_utils import AnchorGenerator
 from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
 from torchvision.models.detection.mask_rcnn import MaskRCNNPredictor
+
 from trackrcnn_kitty.losses import compute_association_loss
 from trackrcnn_kitty.utils import check_for_degenerate_boxes, validate_and_build_stacked_boxes
-
 
 model_urls = {
     "maskrcnn_resnet50_fpn_coco": "https://download.pytorch.org/models/maskrcnn_resnet50_fpn_coco-bf2d0c1e.pth",
@@ -18,30 +19,51 @@ model_urls = {
 
 
 class TrackRCNN(MaskRCNN):
-    def __init__(self, num_classes, backbone, do_tracking, batch_size, **kwargs):
-        super(TrackRCNN, self).__init__(backbone, 91, **kwargs)
+    def __init__(self, num_classes, backbone, do_tracking, **kwargs):
+        # We create a new anchor generator to use smaller anchors because the
+        # images and objects are small
+        rpn_anchor_generator = None
+        rpn_batch_size_per_image = 32
+
+        if num_classes == 3: # KITTI
+            anchor_sizes = ((8,), (16,), (32,), (64,), (128,))
+            aspect_ratios = ((0.5, 1.0, 2.0),) * len(anchor_sizes)
+            rpn_anchor_generator = AnchorGenerator(anchor_sizes, aspect_ratios)
+            rpn_batch_size_per_image = 32
+
+        # The number of classes of the COCO dataset that the backbone is pretrained one is 91
+        # Also we want to use 32 ROIs per image because the images don't have many objects
+        super(TrackRCNN, self).__init__(backbone, 91, rpn_anchor_generator=rpn_anchor_generator,
+                                        rpn_batch_size_per_image=rpn_batch_size_per_image, **kwargs)
         state_dict = load_state_dict_from_url(model_urls["maskrcnn_resnet50_fpn_coco"], progress=True)
         self.load_state_dict(state_dict)
         overwrite_eps(self, 0.0)
+
+        # We don't use the whole MaskRCNN as a pretrained model, only the backbone is pretrained
+        # state_dict = load_state_dict_from_url(model_urls["maskrcnn_resnet50_fpn_coco"], progress=True)
+        # self.load_state_dict(state_dict)
+        # overwrite_eps(self, 0.0)
+
         self.do_tracking = do_tracking
         self.finetune(num_classes)
+
         backbone_output_dim = 1024 # TODO: don't hardcode this
 
-        # We create our two depth-wise separable Conv3D layers
-        conv3d_parameters_1 = {
-            "in_channels": 1,
-            "kernel_size": (3, 3, 3),  # value used by the authors of TrackRCNN for the Conv3d layers
-            "out_channels": 1,
-            "padding": (1, 1, 1)
-        }
-        conv3d_parameters_2 = {
-            "in_channels": backbone_output_dim,
-            "kernel_size": (1, 1, 1),
-            "out_channels": backbone_output_dim,
-            "padding": None
-        }
-        # self.conv3d_temp_1 = SepConvTemp3D(conv3d_parameters_1, conv3d_parameters_2, backbone_output_dim)
-        # self.conv3d_temp_2 = SepConvTemp3D(conv3d_parameters_1, conv3d_parameters_2, backbone_output_dim)
+        # # We create our two depth-wise separable Conv3D layers
+        # conv3d_parameters_1 = {
+        #     "in_channels": 1,
+        #     "kernel_size": (3, 3, 3),  # value used by the authors of TrackRCNN for the Conv3d layers
+        #     "out_channels": 1,
+        #     "padding": (1, 1, 1)
+        # }
+        # conv3d_parameters_2 = {
+        #     "in_channels": backbone_output_dim,
+        #     "kernel_size": (1, 1, 1),
+        #     "out_channels": backbone_output_dim,
+        #     "padding": None
+        # }
+        # # self.conv3d_temp_1 = SepConvTemp3D(conv3d_parameters_1, conv3d_parameters_2, backbone_output_dim)
+        # # self.conv3d_temp_2 = SepConvTemp3D(conv3d_parameters_1, conv3d_parameters_2, backbone_output_dim)
 
         # self.relu = nn.ReLU()
 
@@ -69,7 +91,7 @@ class TrackRCNN(MaskRCNN):
         if self.training and targets is None:
             raise ValueError("In training mode, targets should be passed")
 
-        stacked_boxes = validate_and_build_stacked_boxes(targets)
+        stacked_boxes = validate_and_build_stacked_boxes(targets, self.training)
 
         original_image_sizes = []
         for img in images:

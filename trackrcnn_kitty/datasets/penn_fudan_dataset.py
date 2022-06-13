@@ -60,7 +60,7 @@ class PennFudanDataset(Dataset):
         is_crowd = torch.zeros((num_objs,), dtype=torch.int64)
 
         targets = {"boxes": boxes, "labels": labels, "masks": masks, "image_id": image_id, "area": area,
-                  "iscrowd": is_crowd}
+                   "iscrowd": is_crowd}
 
         if self.transforms is not None:
             img, targets = self.transforms(img, targets)

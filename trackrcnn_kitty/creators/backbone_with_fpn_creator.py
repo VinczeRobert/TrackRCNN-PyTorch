@@ -12,7 +12,7 @@ class BackboneWithFPNCreator:
         if use_resnet_101:
             backbone = torchvision.models.resnet101(pretrained=False, norm_layer=misc_nn_ops.FrozenBatchNorm2d)
         else:
-            backbone = torchvision.models.resnet50(pretrained=False, norm_layer=misc_nn_ops.FrozenBatchNorm2d)
+            backbone = torchvision.models.resnet50(pretrained=True, norm_layer=misc_nn_ops.FrozenBatchNorm2d)
 
         if train_last_layer:
             trainable_backbone_layers = 4

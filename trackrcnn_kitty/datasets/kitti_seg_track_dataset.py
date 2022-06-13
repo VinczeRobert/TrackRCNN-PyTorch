@@ -1,4 +1,5 @@
 import os
+
 import numpy as np
 import torch
 from PIL import Image
@@ -6,7 +7,7 @@ from torch.utils.data import Dataset
 
 
 class KITTISegTrackDataset(Dataset):
-    def __init__(self, root_path, transforms):
+    def __init__(self, root_path, transforms, task="train"):
         self.root_path = root_path
         self.transforms = transforms
         self.num_classes = 3
@@ -15,7 +16,7 @@ class KITTISegTrackDataset(Dataset):
         self.mask_paths = []
         self.targets = []
 
-        self.__build_list()
+        self.__build_list(task)
         print('Reading data is completed...')
 
     def __getitem__(self, idx):
@@ -44,8 +45,12 @@ class KITTISegTrackDataset(Dataset):
     def __len__(self):
         return len(self.image_paths)
 
-    def __build_list(self):
-        masks_root_path = os.path.join(self.root_path, "annotations/instances")
+    def __build_list(self, task):
+        if task == "train":
+            masks_root_path = os.path.join(self.root_path, "annotations/instances")
+        else:
+            masks_root_path = os.path.join(self.root_path, "annotations/val-instances")
+
         for root, dirs, files in os.walk(masks_root_path):
             for file in files:
                 mask_path = os.path.join(root, file)
@@ -117,6 +122,9 @@ class KITTISegTrackDataset(Dataset):
                     "iscrowd": is_crowd
                 })
 
-                image_path = mask_path.replace("annotations/instances", "images/training")
+                if task == "train":
+                    image_path = mask_path.replace("annotations/instances", "images/training")
+                else:
+                    image_path = mask_path.replace("annotations/val-instances", "images/validation")
                 self.image_paths.append(image_path)
                 self.mask_paths.append(mask_path)

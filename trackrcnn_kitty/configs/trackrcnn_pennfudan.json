@@ -3,9 +3,9 @@
   "dataset_path": "D:\\Robert\\PennFudanPed",
   "image_size": [309, 1024],
   "image_transforms": ["flip"],
-  "shuffle": true,
 
-  "batch_size": 2,
+  "train_batch_size": 2,
+  "test_batch_size": 1,
   "learning_rate": 0.005,
   "num_epochs": 10,
   "momentum": 0.9,
@@ -16,5 +16,7 @@
   "weights_path": "penn_fudan.pth",
 
   "use_resnet_101": false,
-  "train_last_layer": false
+  "train_last_layer": false,
+
+  "task": "save_preds"
 }
