@@ -17,32 +17,34 @@ model_urls = {
     "maskrcnn_resnet50_fpn_coco": "https://download.pytorch.org/models/maskrcnn_resnet50_fpn_coco-bf2d0c1e.pth",
 }
 
+COCO_DATASET_CLASSES = 91
+RPN_BATCH_SIZE_PER_IMG_DEFAULT = 256
+
 
 class TrackRCNN(MaskRCNN):
-    def __init__(self, num_classes, backbone, do_tracking, **kwargs):
-        # We create a new anchor generator to use smaller anchors because the
-        # images and objects are small
+    def __init__(self,
+                 num_classes,
+                 backbone,
+                 do_tracking,
+                 pretrain_only_backbone,
+                 maskrcnn_params,
+                 **kwargs):
+        # In some cases we create a new anchor generator to use smaller anchors (normally,
+        # when the images and objects are too small)
         rpn_anchor_generator = None
-        rpn_batch_size_per_image = 32
-
-        if num_classes == 3: # KITTI
-            anchor_sizes = ((8,), (16,), (32,), (64,), (128,))
-            aspect_ratios = ((0.5, 1.0, 2.0),) * len(anchor_sizes)
+        if "anchor_sizes" in maskrcnn_params and "aspect_ratios" in maskrcnn_params:
+            anchor_sizes = tuple([(size, ) for size in maskrcnn_params["anchor_sizes"]])
+            aspect_ratios = (tuple(maskrcnn_params["aspect_ratios"]),) * len(anchor_sizes)
             rpn_anchor_generator = AnchorGenerator(anchor_sizes, aspect_ratios)
-            rpn_batch_size_per_image = 32
+        rpn_batch_size_per_image = maskrcnn_params.get("rpn_batch_size_per_image", RPN_BATCH_SIZE_PER_IMG_DEFAULT)
 
         # The number of classes of the COCO dataset that the backbone is pretrained one is 91
         # Also we want to use 32 ROIs per image because the images don't have many objects
-        super(TrackRCNN, self).__init__(backbone, 91, rpn_anchor_generator=rpn_anchor_generator,
+        super(TrackRCNN, self).__init__(backbone, COCO_DATASET_CLASSES, rpn_anchor_generator=rpn_anchor_generator,
                                         rpn_batch_size_per_image=rpn_batch_size_per_image, **kwargs)
-        state_dict = load_state_dict_from_url(model_urls["maskrcnn_resnet50_fpn_coco"], progress=True)
-        self.load_state_dict(state_dict)
-        overwrite_eps(self, 0.0)
 
-        # We don't use the whole MaskRCNN as a pretrained model, only the backbone is pretrained
-        # state_dict = load_state_dict_from_url(model_urls["maskrcnn_resnet50_fpn_coco"], progress=True)
-        # self.load_state_dict(state_dict)
-        # overwrite_eps(self, 0.0)
+        if pretrain_only_backbone is False:
+            self.load_weights_pretrained_on_coco()
 
         self.do_tracking = do_tracking
         self.finetune(num_classes)
@@ -149,3 +151,8 @@ class TrackRCNN(MaskRCNN):
             return losses
 
         return detections
+
+    def load_weights_pretrained_on_coco(self):
+        state_dict = load_state_dict_from_url(model_urls["maskrcnn_resnet50_fpn_coco"], progress=True)
+        self.load_state_dict(state_dict)
+        overwrite_eps(self, 0.0)

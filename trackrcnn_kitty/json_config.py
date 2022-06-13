@@ -8,6 +8,7 @@ class JSONConfig:
         f = open(path)
         data = json.load(f)
 
+        # TODO: Use some defaults values here in order to avoid possible KeyErrors
         self.dataset = data["dataset"]
         self.dataset_path = data["dataset_path"]
         self.image_size = data["image_size"]
@@ -29,6 +30,8 @@ class JSONConfig:
 
         # task can be 1. train, 2.val, 3.train+val 4.save_preds
         self.task = data["task"]
+        self.maskrcnn_params = data["maskrcnn_params"]
+        self.pretrain_only_backbone = data["pretrain_only_backbone"]
 
     @staticmethod
     def get_instance(path):

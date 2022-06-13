@@ -317,7 +317,7 @@ def evaluate(self):
     self.params = p
 
     self._prepare()
-    # loop through images, area range, max detection number
+    # loop through images, area range, max pytorch_detection number
     catIds = p.catIds if p.useCats else [-1]
 
     if p.iouType == 'segm' or p.iouType == 'bbox':

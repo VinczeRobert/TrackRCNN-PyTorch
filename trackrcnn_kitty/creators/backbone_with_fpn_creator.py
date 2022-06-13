@@ -6,13 +6,15 @@ from torchvision.ops.feature_pyramid_network import LastLevelMaxPool
 
 class BackboneWithFPNCreator:
 
-    def __init__(self, use_resnet_101, train_last_layer):
+    def __init__(self, use_resnet_101, train_last_layer, pretrain_backbone):
         # We create the backbone: we'll use a pretrained Resnet101
         # that has been trained on the COCO dataset
         if use_resnet_101:
-            backbone = torchvision.models.resnet101(pretrained=False, norm_layer=misc_nn_ops.FrozenBatchNorm2d)
+            backbone = torchvision.models.resnet101(pretrained=pretrain_backbone,
+                                                    norm_layer=misc_nn_ops.FrozenBatchNorm2d)
         else:
-            backbone = torchvision.models.resnet50(pretrained=True, norm_layer=misc_nn_ops.FrozenBatchNorm2d)
+            backbone = torchvision.models.resnet50(pretrained=pretrain_backbone,
+                                                   norm_layer=misc_nn_ops.FrozenBatchNorm2d)
 
         if train_last_layer:
             trainable_backbone_layers = 4

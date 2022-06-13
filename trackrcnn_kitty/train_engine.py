@@ -2,8 +2,8 @@ import os
 
 import torch
 
-from references.detection.engine import train_one_epoch, evaluate
-from references.detection.utils import MetricLogger
+from references.pytorch_detection.engine import train_one_epoch, evaluate
+from references.pytorch_detection.utils import MetricLogger
 from trackrcnn_kitty.creators.backbone_with_fpn_creator import BackboneWithFPNCreator
 from trackrcnn_kitty.creators.data_loader_creator import get_data_loaders
 from trackrcnn_kitty.datasets.dataset_factory import get_dataset
@@ -18,23 +18,27 @@ model_urls = {
 
 
 class TrainEngine:
-    def __init__(self, config_path):
+    def __init__(self, config):
         self.device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-        torch.cuda.empty_cache()
-        self.config = JSONConfig.get_instance(config_path)
+        self.config = config
+
         train = True if self.config.task in ["train", "train+val"] else False
 
         transforms = get_transforms(self.config.transforms_list, train)
-        self.dataset = get_dataset(self.config.dataset, self.config.dataset_path, transforms)
+        self.dataset = get_dataset(self.config.dataset, self.config.dataset_path, transforms, train)
         self.data_loaders = get_data_loaders(self.dataset, self.config.dataset, self.config.task,
                                              self.config.train_batch_size, self.config.test_batch_size,
                                              self.config.transforms_list)
 
         backbone = BackboneWithFPNCreator(train_last_layer=self.config.train_last_layer,
-                                          use_resnet_101=self.config.use_resnet_101).get_instance()
+                                          use_resnet_101=self.config.use_resnet_101,
+                                          pretrain_backbone=self.config.pretrain_only_backbone).get_instance()
+
         self.model = TrackRCNN(num_classes=self.dataset.num_classes,
                                backbone=backbone,
-                               do_tracking=self.config.add_associations)
+                               do_tracking=self.config.add_associations,
+                               pretrain_only_backbone=self.config.pretrain_only_backbone,
+                               maskrcnn_params=self.config.maskrcnn_params)
         self.model.to(self.device)
 
     def training(self):
@@ -101,15 +105,18 @@ class TrainEngine:
         metric_logger = MetricLogger(delimiter=" ")
         current_index = 0
         for images, targets, in metric_logger.log_every(self.data_loaders["test"], 100, "Test:"):
+            torch.cuda.empty_cache()
             images = list(img.to(self.device) for img in images)
 
             torch.cuda.synchronize()
             outputs = self.model(images)
 
+            current_inner_index = current_index
             # Store ground truth detections
             for target in targets:
-                gt_file_name = os.path.join(directory, "ground_truth", f"image_{current_index:06}.txt")
+                gt_file_name = os.path.join(directory, "ground_truth", f"image_{current_inner_index:06}.txt")
                 write_gt_to_file(target, gt_file_name)
+                current_inner_index = current_inner_index + 1
 
             # Store predicted detections
             for output in outputs:

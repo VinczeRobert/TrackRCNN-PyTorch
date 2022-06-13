@@ -7,7 +7,7 @@ from torch.utils.data import Dataset
 
 
 class KITTISegTrackDataset(Dataset):
-    def __init__(self, root_path, transforms, task="train"):
+    def __init__(self, root_path, transforms, train=True):
         self.root_path = root_path
         self.transforms = transforms
         self.num_classes = 3
@@ -16,7 +16,7 @@ class KITTISegTrackDataset(Dataset):
         self.mask_paths = []
         self.targets = []
 
-        self.__build_list(task)
+        self.__build_list(train)
         print('Reading data is completed...')
 
     def __getitem__(self, idx):
@@ -46,7 +46,7 @@ class KITTISegTrackDataset(Dataset):
         return len(self.image_paths)
 
     def __build_list(self, task):
-        if task == "train":
+        if task:
             masks_root_path = os.path.join(self.root_path, "annotations/instances")
         else:
             masks_root_path = os.path.join(self.root_path, "annotations/val-instances")

@@ -18,5 +18,8 @@
   "use_resnet_101": false,
   "train_last_layer": false,
 
-  "task": "save_preds"
+  "task": "train",
+  "maskrcnn_params": {
+  },
+  "pretrain_only_backbone": true
 }
