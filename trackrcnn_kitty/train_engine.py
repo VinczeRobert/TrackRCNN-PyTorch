@@ -30,7 +30,7 @@ class TrainEngine:
                                              self.config.train_batch_size, self.config.test_batch_size,
                                              self.config.transforms_list)
 
-        backbone = BackboneWithFPNCreator(train_last_layer=self.config.train_last_layer,
+        backbone = BackboneWithFPNCreator(trainable_backbone_layers=self.config.trainable_backbone_layers,
                                           use_resnet_101=self.config.use_resnet_101,
                                           pretrain_backbone=self.config.pretrain_only_backbone).get_instance()
 
@@ -43,7 +43,7 @@ class TrainEngine:
 
     def training(self):
         params = [p for p in self.model.parameters() if p.requires_grad]
-        optimizer = torch.optim.Adam(params, lr=self.config.learning_rate)
+        optimizer = torch.optim.SGD(params, lr=self.config.learning_rate)
 
         for epoch in range(self.config.num_epochs):
             # train for one epoch, printing every 10 iterations

@@ -26,7 +26,7 @@ class JSONConfig:
         self.weights_path = data["weights_path"]
 
         self.use_resnet_101 = data["use_resnet_101"]
-        self.train_last_layer = data["train_last_layer"]
+        self.trainable_backbone_layers = data["trainable_backbone_layers"]
 
         # task can be 1. train, 2.val, 3.train+val 4.save_preds
         self.task = data["task"]
