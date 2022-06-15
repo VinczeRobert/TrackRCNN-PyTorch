@@ -45,44 +45,6 @@ class RandomHorizontalFlip(object):
         return image, target
 
 
-class Resize(object):
-    def __init__(self, resize_shape):
-        self.resize_shape = resize_shape
-
-    def __call__(self, image, target):
-        x = image.shape[2]
-        y = image.shape[1]
-        pil_image = ToPILImage()(image)
-        resized_image = pil_image.resize(self.resize_shape)
-        resized_image = np.array(resized_image)
-        resized_image = resized_image.reshape((resized_image.shape[2],
-                                               resized_image.shape[1],
-                                               resized_image.shape[0]))
-        resized_image = torch.tensor(resized_image, dtype=torch.float32)
-
-        resized_masks = []
-        for idx, mask in enumerate(target["masks"]):
-            mask = ToPILImage()(mask)
-            resized_mask = mask.resize(self.resize_shape)
-            resized_mask = np.array(resized_mask)
-            resized_masks.append(torch.as_tensor(resized_mask))
-        target["masks"] = torch.as_tensor(np.stack(resized_masks, axis=0))
-
-        x_scale = self.resize_shape[1] / x
-        y_scale = self.resize_shape[0] / y
-
-        resized_boxes = []
-        for idx, bb in enumerate(target["boxes"]):
-            x = bb[0] * x_scale
-            y = bb[1] * y_scale
-            x_max = bb[2] * x_scale
-            y_max = bb[3] * y_scale
-            resized_boxes.append(torch.as_tensor([x, y, x_max, y_max]))
-        target["boxes"] = torch.as_tensor(np.stack(resized_boxes, axis=0))
-
-        return resized_image, target
-
-
 class ToTensor(object):
     def __call__(self, image, target):
         image = F.to_tensor(image)

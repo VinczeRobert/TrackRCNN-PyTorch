@@ -4,9 +4,9 @@
   "image_size": [309, 1024],
   "image_transforms": ["flip"],
 
-  "train_batch_size": 4,
+  "train_batch_size": 8,
   "test_batch_size": 4,
-  "learning_rate": 0.006,
+  "learning_rate": 0.0006,
   "num_epochs": 5,
   "momentum": 0,
   "weight_decay": 0,
@@ -16,7 +16,7 @@
   "weights_path": "kitty_newloss.pth",
 
   "use_resnet_101": true,
-  "train_last_layer": false,
+  "trainable_backbone_layers": 4
 
   "task": "train",
   "maskrcnn_params": {

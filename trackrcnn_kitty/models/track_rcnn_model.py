@@ -9,6 +9,7 @@ from torchvision.models.detection._utils import overwrite_eps
 from torchvision.models.detection.anchor_utils import AnchorGenerator
 from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
 from torchvision.models.detection.mask_rcnn import MaskRCNNPredictor
+from torchvision.models.detection.transform import GeneralizedRCNNTransform
 
 from trackrcnn_kitty.losses import compute_association_loss
 from trackrcnn_kitty.utils import check_for_degenerate_boxes, validate_and_build_stacked_boxes
@@ -28,12 +29,13 @@ class TrackRCNN(MaskRCNN):
                  do_tracking,
                  pretrain_only_backbone,
                  maskrcnn_params,
+                 fixed_size=(1024, 309),
                  **kwargs):
         # In some cases we create a new anchor generator to use smaller anchors (normally,
         # when the images and objects are too small)
         rpn_anchor_generator = None
         if "anchor_sizes" in maskrcnn_params and "aspect_ratios" in maskrcnn_params:
-            anchor_sizes = tuple([(size, ) for size in maskrcnn_params["anchor_sizes"]])
+            anchor_sizes = tuple([(size,) for size in maskrcnn_params["anchor_sizes"]])
             aspect_ratios = (tuple(maskrcnn_params["aspect_ratios"]),) * len(anchor_sizes)
             rpn_anchor_generator = AnchorGenerator(anchor_sizes, aspect_ratios)
         rpn_batch_size_per_image = maskrcnn_params.get("rpn_batch_size_per_image", RPN_BATCH_SIZE_PER_IMG_DEFAULT)
@@ -42,6 +44,12 @@ class TrackRCNN(MaskRCNN):
         # Also we want to use 32 ROIs per image because the images don't have many objects
         super(TrackRCNN, self).__init__(backbone, COCO_DATASET_CLASSES, rpn_anchor_generator=rpn_anchor_generator,
                                         rpn_batch_size_per_image=rpn_batch_size_per_image, **kwargs)
+        # Override the transform class to perform resize with fixed size the way it is described in the paper
+        image_mean = [0.485, 0.456, 0.406]
+        image_std = [0.229, 0.224, 0.225]
+        min_size = 800
+        max_size = 1333
+        self.transform = GeneralizedRCNNTransform(min_size, max_size, image_mean, image_std, fixed_size=fixed_size)
 
         if pretrain_only_backbone is False:
             self.load_weights_pretrained_on_coco()
@@ -49,7 +57,7 @@ class TrackRCNN(MaskRCNN):
         self.do_tracking = do_tracking
         self.finetune(num_classes)
 
-        backbone_output_dim = 1024 # TODO: don't hardcode this
+        backbone_output_dim = 1024  # TODO: don't hardcode this
 
         # # We create our two depth-wise separable Conv3D layers
         # conv3d_parameters_1 = {
@@ -109,7 +117,7 @@ class TrackRCNN(MaskRCNN):
 
         # The next step is to send our features through our Conv3D layers
         if self.do_tracking:
-            features = self.conv3d_temp_1.forward(feature_dict["pool"]) # DON'T HARDCODE THIS
+            features = self.conv3d_temp_1.forward(feature_dict["pool"])  # DON'T HARDCODE THIS
             features = self.relu(features)
             feature_dict[str(len(feature_dict) + 1)] = features
             features = self.conv3d_temp_2.forward(features)

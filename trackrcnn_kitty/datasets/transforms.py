@@ -20,5 +20,4 @@ def get_transforms(transforms_list, train):
     transforms = [T.ToTensor()]
     if "flip" in transforms_list and train:
         transforms.append(T.RandomHorizontalFlip(0.5))
-    transforms.append(T.Resize((309, 1024)))
     return T.Compose(transforms)

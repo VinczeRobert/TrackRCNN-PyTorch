@@ -15,11 +15,11 @@
   "add_associations": false,
   "weights_path": "penn_fudan.pth",
 
-  "use_resnet_101": false,
-  "train_last_layer": false,
+  "use_resnet_101": true,
+  "trainable_backbone_layers": 4,
 
   "task": "train",
   "maskrcnn_params": {
   },
-  "pretrain_only_backbone": true
+  "pretrain_only_backbone": false
 }

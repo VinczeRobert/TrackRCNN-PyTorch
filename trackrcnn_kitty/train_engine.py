@@ -43,20 +43,11 @@ class TrainEngine:
 
     def training(self):
         params = [p for p in self.model.parameters() if p.requires_grad]
-        optimizer = torch.optim.SGD(params, lr=self.config.learning_rate, weight_decay=self.config.weight_decay,
-                                    momentum=self.config.momentum)
-
-        if self.config.add_lr_scheduler:
-            lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer,
-                                                           step_size=3,
-                                                           gamma=0.1)
+        optimizer = torch.optim.Adam(params, lr=self.config.learning_rate)
 
         for epoch in range(self.config.num_epochs):
             # train for one epoch, printing every 10 iterations
             train_one_epoch(self.model, optimizer, self.data_loaders["train"], self.device, epoch, print_freq=10)
-
-            if self.config.add_associations:
-                lr_scheduler.step()
 
         checkpoint = {
             "epoch": self.config.num_epochs,
@@ -73,21 +64,12 @@ class TrainEngine:
 
     def training_and_evaluating(self):
         params = [p for p in self.model.parameters() if p.requires_grad]
-        optimizer = torch.optim.SGD(params, lr=self.config.learning_rate, weight_decay=self.config.weight_decay,
-                                    momentum=self.config.momentum)
-
-        if self.config.add_lr_scheduler:
-            lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer,
-                                                           step_size=3,
-                                                           gamma=0.1)
+        optimizer = torch.optim.Adam(params, lr=self.config.learning_rate)
 
         for epoch in range(self.config.num_epochs):
             # train for one epoch, printing every 10 iterations
             train_one_epoch(self.model, optimizer, self.data_loaders["train"], self.device, epoch, print_freq=10)
-            # evaluate(self.model, self.data_loaders["test"], device=self.device)
-
-            if self.config.add_associations:
-                lr_scheduler.step()
+            evaluate(self.model, self.data_loaders["test"], device=self.device)
 
         checkpoint = {
             "epoch": self.config.num_epochs,
