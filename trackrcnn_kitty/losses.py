@@ -60,12 +60,9 @@ def compute_association_loss_for_detection(curr_det_id, dst_matrix, dets_axis_0,
         return 0, 1
 
 
-def compute_association_loss(associations, targets):
+def compute_association_loss(associations, detection_ids):
     # Create a tensor of dim (D), D being the number of detections
-    all_detection_ids = []
-    for target in targets:
-        all_detection_ids.append(target['object_ids'])
-    all_detection_ids = torch.cat(all_detection_ids, dim=0)
+    all_detection_ids = torch.cat(detection_ids, dim=0)
 
     # associations is a tensor of dim (D, 128), D being the number of detections
     # compute euclidean distance between every pair of detections from this batch
@@ -77,9 +74,9 @@ def compute_association_loss(associations, targets):
     normalization = 0
     for detection_id in unique_detection_ids:
         loss_per_id, normalization_per_id = compute_association_loss_for_detection(detection_id,
-                                                                                   detection_distances,
-                                                                                   all_detection_ids,
-                                                                                   all_detection_ids)
+                                                                                   detection_distances.cpu(),
+                                                                                   all_detection_ids.cpu(),
+                                                                                   all_detection_ids.cpu())
         loss += loss_per_id
         normalization += normalization_per_id
 

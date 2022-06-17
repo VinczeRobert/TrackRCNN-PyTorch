@@ -4,7 +4,7 @@
   "image_size": [309, 1024],
   "image_transforms": ["flip"],
 
-  "train_batch_size": 2,
+  "train_batch_size": 4,
   "test_batch_size": 1,
   "learning_rate": 0.005,
   "num_epochs": 10,
@@ -20,6 +20,9 @@
 
   "task": "train",
   "maskrcnn_params": {
+    "anchor_sizes": [32, 64, 128, 256, 512, 512, 512],
+    "aspect_ratios": [0.5, 1.0, 2.0],
+    "rpn_batch_size_per_image": 32
   },
   "pretrain_only_backbone": false
 }
