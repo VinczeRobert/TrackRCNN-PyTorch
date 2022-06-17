@@ -8,8 +8,8 @@ from trackrcnn_kitty.creators.backbone_with_fpn_creator import BackboneWithFPNCr
 from trackrcnn_kitty.creators.data_loader_creator import get_data_loaders
 from trackrcnn_kitty.datasets.dataset_factory import get_dataset
 from trackrcnn_kitty.datasets.transforms import get_transforms
-from trackrcnn_kitty.json_config import JSONConfig
-from trackrcnn_kitty.models.track_rcnn_model import TrackRCNN
+from trackrcnn_kitty.models.track_rcnn import TrackRCNN
+
 from trackrcnn_kitty.utils import write_detection_to_file, write_gt_to_file
 
 model_urls = {
@@ -36,7 +36,6 @@ class TrainEngine:
 
         self.model = TrackRCNN(num_classes=self.dataset.num_classes,
                                backbone=backbone,
-                               do_tracking=self.config.add_associations,
                                pretrain_only_backbone=self.config.pretrain_only_backbone,
                                maskrcnn_params=self.config.maskrcnn_params)
         self.model.to(self.device)
