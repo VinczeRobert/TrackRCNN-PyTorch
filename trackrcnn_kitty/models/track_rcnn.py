@@ -4,7 +4,7 @@ import numpy as np
 import torch
 from torch import nn, Tensor
 
-from references.maskrcnn.utils import compute_overlaps
+from references.pytorch_maskrcnn_coco.utils import compute_overlaps
 from trackrcnn_kitty.losses import compute_association_loss
 from trackrcnn_kitty.models.layers import SepConvTemp3D
 from trackrcnn_kitty.models.mask_rcnn import CustomMaskRCNN
@@ -15,13 +15,13 @@ class TrackRCNN(CustomMaskRCNN):
     def __init__(self,
                  num_classes,
                  backbone,
-                 pretrain_only_backbone=False,
+                 pretrained_backbone=False,
                  maskrcnn_params=None,
                  fixed_size=None,
                  **kwargs):
         super(TrackRCNN, self).__init__(num_classes,
                                         backbone,
-                                        pretrain_only_backbone,
+                                        pretrained_backbone,
                                         maskrcnn_params,
                                         fixed_size,
                                         **kwargs)

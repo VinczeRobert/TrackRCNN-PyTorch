@@ -25,8 +25,8 @@ if __name__ == '__main__':
     val_set = MainCOCODataset(dataset_val, config, augment=True)
     val_generator = torch.utils.data.DataLoader(val_set, batch_size=1, shuffle=True, num_workers=4, collate_fn=collate_fn)
 
-    backbone = BackboneWithFPNCreator(use_resnet_101=True,
-                                      pretrain_backbone=False,
+    backbone = BackboneWithFPNCreator(use_resnet101=True,
+                                      pretrained_backbone=False,
                                       trainable_backbone_layers=5).get_instance()
 
     maskrcnn_params = {
@@ -37,7 +37,7 @@ if __name__ == '__main__':
 
     model = CustomMaskRCNN(num_classes=91,
                            backbone=backbone,
-                           pretrain_only_backbone=False,
+                           pretrained_backbone=False,
                            maskrcnn_params=maskrcnn_params,
                            fixed_size=(1024, 309))
     model.to(device)

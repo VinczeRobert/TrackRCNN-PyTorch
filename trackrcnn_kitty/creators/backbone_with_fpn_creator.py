@@ -1,4 +1,5 @@
 import torchvision
+from torch.nn import BatchNorm2d
 from torchvision.models.detection.backbone_utils import BackboneWithFPN
 from torchvision.ops import misc as misc_nn_ops
 from torchvision.ops.feature_pyramid_network import LastLevelMaxPool
@@ -6,15 +7,25 @@ from torchvision.ops.feature_pyramid_network import LastLevelMaxPool
 
 class BackboneWithFPNCreator:
 
-    def __init__(self, use_resnet_101, trainable_backbone_layers, pretrain_backbone):
-        # We create the backbone: we'll use a pretrained Resnet101
-        # that has been trained on the COCO dataset
-        if use_resnet_101:
-            backbone = torchvision.models.resnet101(pretrained=pretrain_backbone,
-                                                    norm_layer=misc_nn_ops.FrozenBatchNorm2d)
+    def __init__(self, **kwargs):
+        use_resnet101 = kwargs.get("use_resnet101", True)
+        trainable_backbone_layers = kwargs.get("trainable_backbone_layers", True)
+        pretrained_backbone = kwargs.get("pretrained_backbone", True)
+        freeze_batchnorm = kwargs.get("freeze_batchnorm", False)
+
+        # Using a freezed batch norm layer does not only not train those layers, but
+        # it does not even add the weights to the list of the model's weights
+        if freeze_batchnorm:
+            norm_layer = misc_nn_ops.FrozenBatchNorm2d
         else:
-            backbone = torchvision.models.resnet50(pretrained=pretrain_backbone,
-                                                   norm_layer=misc_nn_ops.FrozenBatchNorm2d)
+            norm_layer = BatchNorm2d
+
+        if use_resnet101:
+            backbone = torchvision.models.resnet101(pretrained=pretrained_backbone,
+                                                    norm_layer=norm_layer)
+        else:
+            backbone = torchvision.models.resnet50(pretrained=pretrained_backbone,
+                                                   norm_layer=norm_layer)
 
         self.backbone_with_fpn = self.resnet_fpn_extractor(backbone, trainable_backbone_layers)
 

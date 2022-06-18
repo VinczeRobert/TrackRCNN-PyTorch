@@ -5,7 +5,8 @@ import references.pytorch_detection.transforms as T
 
 # There seems to be a gamma correction in the main
 # example of TrackRCNN but it is not known yet what values they used
-# so we don't use this calss yet
+# so we don't use this class yet
+# TODO: check what's up with this
 class GammaCorrection:
     def __init__(self):
         self.range = (-0.05, 0.05)

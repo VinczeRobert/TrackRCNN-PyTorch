@@ -8,6 +8,7 @@ from trackrcnn_kitty.creators.backbone_with_fpn_creator import BackboneWithFPNCr
 from trackrcnn_kitty.creators.data_loader_creator import get_data_loaders
 from trackrcnn_kitty.datasets.dataset_factory import get_dataset
 from trackrcnn_kitty.datasets.transforms import get_transforms
+from trackrcnn_kitty.models.mask_rcnn import CustomMaskRCNN
 from trackrcnn_kitty.models.track_rcnn import TrackRCNN
 
 from trackrcnn_kitty.utils import write_detection_to_file, write_gt_to_file
@@ -23,26 +24,40 @@ class TrainEngine:
         self.config = config
 
         train = True if self.config.task in ["train", "train+val"] else False
-
         transforms = get_transforms(self.config.transforms_list, train)
-        self.dataset = get_dataset(self.config.dataset, self.config.dataset_path, transforms, train)
-        self.data_loaders = get_data_loaders(self.dataset, self.config.dataset, self.config.task,
-                                             self.config.train_batch_size, self.config.test_batch_size,
-                                             self.config.transforms_list)
+
+        self.dataset = get_dataset(config, transforms, train)
+        self.data_loaders = get_data_loaders(self.dataset, self.config)
 
         backbone = BackboneWithFPNCreator(trainable_backbone_layers=self.config.trainable_backbone_layers,
-                                          use_resnet_101=self.config.use_resnet_101,
-                                          pretrain_backbone=self.config.pretrain_only_backbone).get_instance()
+                                          use_resnet101=self.config.use_resnet101,
+                                          pretrained_backbone=self.config.pretrained_backbone,
+                                          freeze_batchnorm=self.config.freeze_batchnorm).get_instance()
 
-        self.model = TrackRCNN(num_classes=self.dataset.num_classes,
-                               backbone=backbone,
-                               pretrain_only_backbone=self.config.pretrain_only_backbone,
-                               maskrcnn_params=self.config.maskrcnn_params)
+        if self.config.add_associations:
+            self.model = TrackRCNN(num_classes=self.dataset.num_classes,
+                                   backbone=backbone,
+                                   pretrained_backbone=self.config.pretrained_backbone,
+                                   maskrcnn_params=self.config.maskrcnn_params)
+        else:
+            self.model = CustomMaskRCNN(num_classes=self.dataset.num_classes,
+                                        backbone=backbone,
+                                        pretrained_backbone=self.config.pretrained_backbone,
+                                        maskrcnn_params=self.config.maskrcnn_params)
+
+            # If the backbone was no pretrained weights, we are going to try to use
+            # pretrained weights for the whole model
+            if self.config.pretrained_backbone is False:
+                self.model.load_weights(self.config.weights_path, self.config.preprocess_weights,
+                                        self.config.use_resnet101)
+
         self.model.to(self.device)
 
     def training(self):
         params = [p for p in self.model.parameters() if p.requires_grad]
-        optimizer = torch.optim.SGD(params, lr=self.config.learning_rate)
+        optimizer = torch.optim.SGD(params, lr=self.config.learning_rate,
+                                    weight_decay=self.config.weight_decay,
+                                    momentum=self.config.momentum)
 
         for epoch in range(self.config.num_epochs):
             # train for one epoch, printing every 10 iterations

@@ -1,7 +1,9 @@
+import os.path
 from collections import OrderedDict
 
 import torch.jit
 from torch import Tensor
+from torch.hub import load_state_dict_from_url
 from torchvision.models.detection import MaskRCNN
 from torchvision.models.detection._utils import overwrite_eps
 from torchvision.models.detection.anchor_utils import AnchorGenerator
@@ -17,44 +19,38 @@ model_urls = {
 }
 
 COCO_DATASET_CLASSES = 91
-RPN_BATCH_SIZE_PER_IMG_DEFAULT = 256
 
 
 class CustomMaskRCNN(MaskRCNN):
     def __init__(self,
                  num_classes,
                  backbone,
-                 pretrain_only_backbone,
+                 pretrained_backbone,
                  maskrcnn_params,
                  fixed_size=(1024, 309),
                  **kwargs):
         # In some cases we create a new anchor generator to use smaller anchors (normally,
         # when the images and objects are too small)
         rpn_anchor_generator = None
-        rpn_batch_size_per_image = None
         if maskrcnn_params is not None and isinstance(maskrcnn_params, dict):
             if "anchor_sizes" in maskrcnn_params and "aspect_ratios" in maskrcnn_params:
                 anchor_sizes = tuple([(size,) for size in maskrcnn_params["anchor_sizes"]])
                 aspect_ratios = (tuple(maskrcnn_params["aspect_ratios"]),) * len(anchor_sizes)
                 rpn_anchor_generator = AnchorGenerator(anchor_sizes, aspect_ratios)
-                rpn_batch_size_per_image = maskrcnn_params.get("rpn_batch_size_per_image",
-                                                               RPN_BATCH_SIZE_PER_IMG_DEFAULT)
 
+                maskrcnn_params.pop("anchor_sizes", None)
+                maskrcnn_params.pop("aspect_ratios", None)
+
+        kwargs.update(maskrcnn_params)
         # The number of classes of the COCO dataset that the backbone is pretrained one is 91
-        # Also we want to use 32 ROIs per image because the images don't have many objects
         super(CustomMaskRCNN, self).__init__(backbone, COCO_DATASET_CLASSES, rpn_anchor_generator=rpn_anchor_generator,
-                                             rpn_batch_size_per_image=rpn_batch_size_per_image,
-                                             rpn_pre_nms_top_n_train=1000,
-                                             rpn_pre_nms_top_n_test=500,
-                                             rpn_post_nms_top_n_train=1000,
-                                             rpn_post_nms_top_n_test=500,
                                              **kwargs)
         # Override the transform class to perform resize with fixed size the way it is described in the paper
         image_mean = [0.485, 0.456, 0.406]
         image_std = [0.229, 0.224, 0.225]
         min_size = 800
         max_size = 1333
-        self.transform = GeneralizedRCNNTransform(min_size, max_size, image_mean, image_std, fixed_size=fixed_size)
+        self.transform = GeneralizedRCNNTransform(min_size, max_size, image_mean, image_std)
 
         # Override the RoI heads to have access to custom forward method
         self.roi_heads = RoIHeadsCustom(backbone.out_channels,
@@ -64,14 +60,10 @@ class CustomMaskRCNN(MaskRCNN):
                                         self.roi_heads.mask_predictor)
 
         self.finetune(num_classes)
-        if pretrain_only_backbone is False:
-            self.load_weights_pretrained_on_coco()
 
     def forward(self, images, targets=None):
         if self.training and targets is None:
             raise ValueError("In training mode, targets should be passed")
-
-        stacked_boxes = validate_and_build_stacked_boxes(targets, self.training)
 
         original_image_sizes = []
         for img in images:
@@ -101,14 +93,34 @@ class CustomMaskRCNN(MaskRCNN):
 
         return detections
 
-    # TODO: Fix this method or remove it
-    def load_weights_pretrained_on_coco(self):
-        # state_dict = load_state_dict_from_url(model_urls["maskrcnn_resnet50_fpn_coco"], progress=True)
-        # self.load_state_dict(state_dict)
-        # overwrite_eps(self, 0.0)
-        state_dict = torch.load("mask_rcnn_coco.pth")
-        self.load_state_dict(state_dict, strict=False)
-        overwrite_eps(self, 0.0)
+    def __preprocess_coco_weights(self, state_dict):
+        pass
+
+    def load_weights(self, weights_path, preprocess_weights=False, use_resnet101=False):
+        try:
+            if os.path.exists(weights_path):
+                state_dict = torch.load(weights_path)
+
+                if preprocess_weights:
+                    # This project includes some unofficial weights that are obtained
+                    # from pretraining MaskRCNN on Coco, but they require some changes
+                    # in order to load them in Pytorch
+                    state_dict = self.__preprocess_coco_weights(state_dict)
+                self.load_state_dict(state_dict["model_state"])
+
+            else:
+                # If we don't have a valid weights path we are going to try
+                # to download one from the internet
+                # Unfortunately on PyTorch pretrained weights are available only for ResNet50
+                if use_resnet101 is False:
+                    state_dict = load_state_dict_from_url(model_urls["maskrcnn_resnet50_fpn_coco"])
+                    self.load_state_dict(state_dict)
+
+            overwrite_eps(self, 0.0)
+        except RuntimeError as e:
+            print("There is no valid set of weights that can be loaded."
+                  "Training will start with newly initialized weights!")
+            print(e)
 
     def finetune(self, num_classes):
         # get number of input features for the classifier

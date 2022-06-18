@@ -74,8 +74,9 @@ def get_data_loaders_for_kitti(dataset, task, train_batch_size, test_batch_size)
     )}
 
 
-def get_data_loaders(dataset, dataset_name, task, train_batch_size, test_batch_size, transforms_list):
-    if dataset_name == "KITTISegTrack":
-        return get_data_loaders_for_kitti(dataset, task, train_batch_size, test_batch_size)
+def get_data_loaders(dataset, config):
+    if config.dataset == "KITTISegTrack":
+        return get_data_loaders_for_kitti(dataset, config.task, config.train_batch_size, config.test_batch_size)
     else:
-        return get_data_loaders_for_penn_fudan(dataset, task, train_batch_size, test_batch_size, transforms_list)
+        return get_data_loaders_for_penn_fudan(dataset, config.task, config.train_batch_size, config.test_batch_size,
+                                               config.transforms_list)

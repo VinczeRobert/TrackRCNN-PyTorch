@@ -24,14 +24,16 @@ class JSONConfig:
 
         self.add_associations = data["add_associations"]
         self.weights_path = data["weights_path"]
+        self.preprocess_weights = data["preprocess_weights"]
 
-        self.use_resnet_101 = data["use_resnet_101"]
+        self.use_resnet101 = data["use_resnet101"]
         self.trainable_backbone_layers = data["trainable_backbone_layers"]
+        self.freeze_batchnorm = data["freeze_batchnorm"]
 
         # task can be 1. train, 2.val, 3.train+val 4.save_preds
         self.task = data["task"]
         self.maskrcnn_params = data["maskrcnn_params"]
-        self.pretrain_only_backbone = data["pretrain_only_backbone"]
+        self.pretrained_backbone = data["pretrained_backbone"]
 
     @staticmethod
     def get_instance(path):
