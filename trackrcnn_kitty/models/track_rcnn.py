@@ -49,7 +49,7 @@ class TrackRCNN(CustomMaskRCNN):
         # Finally we create the new association head, which is basically a fully connected layer
         # the number of inputs is equal to the number of detections
         # and the number of outputs was set by the authors to 128
-        self.association_head = nn.Linear(in_features=4, out_features=128)
+        self.association_head = nn.Linear(in_features=4, out_features=128, bias=False)
 
     def forward(self, images, targets=None):
         if self.training and targets is None:
@@ -84,17 +84,19 @@ class TrackRCNN(CustomMaskRCNN):
         detections, detector_losses = self.roi_heads(feature_dict, proposals, images.image_sizes, targets)
         detections = self.transform.postprocess(detections, images.image_sizes, original_image_sizes)
 
+        # This for loop gets the predicted tracking ids for the region proposals
+        # by checking their overlap with the ground-truth objects
         proposal_track_ids = []
         for idx, reg_prop_for_time_frame in enumerate(proposals):
             overlaps = compute_overlaps(reg_prop_for_time_frame.cpu(), targets[idx]["boxes"].cpu())
             proposal_ids = np.argmax(overlaps, axis=1)
-            proposal_ids = torch.tensor(proposal_ids)
-            proposal_track_ids.append(proposal_ids)
+            track_ids = torch.stack([targets[idx]["object_ids"][id] for id in proposal_ids], axis=0)
+            proposal_track_ids.append(track_ids)
 
         # get the association vectors and compute the loss
         stacked_proposals = torch.cat(proposals, axis=0)
         associations = self.association_head(stacked_proposals)
-        assocation_loss = compute_association_loss(associations, proposal_track_ids)
+        assocation_loss = compute_association_loss(associations.cpu(), proposal_track_ids)
 
         losses = {}
         losses.update(detector_losses)

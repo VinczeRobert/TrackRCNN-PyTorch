@@ -20,11 +20,7 @@ def compute_association_loss_for_detection(curr_det_id, dst_matrix, dets_axis_0,
 
     # Reduce the distance matrix to keep only the distances between objects
     # for which obj_id = curr_det_id
-    try:
-        sliced_dst_matrix = dst_matrix[mask_axis_0].T
-        # TODO: Need to check why this can cause an exception
-    except IndexError:
-        return 0, 1
+    sliced_dst_matrix = dst_matrix[mask_axis_0].T
 
     # Get a list of the classes of each pytorch_detection
     detection_classes = torch.div(dets_axis_1, 1000, rounding_mode='floor')
@@ -55,14 +51,14 @@ def compute_association_loss_for_detection(curr_det_id, dst_matrix, dets_axis_0,
         triplet_loss = torch.maximum(margin + hard_pos - hard_neg, torch.tensor(0))
 
         # return total loss for current pytorch_detection and normalization
-        return np.asscalar(as_numpy(torch.sum(triplet_loss))), len(same_dst_matrix) + len(different_dst_matrix)
+        return np.asscalar(as_numpy(torch.sum(triplet_loss))), len(triplet_loss)
     else:
         return 0, 1
 
 
 def compute_association_loss(associations, detection_ids):
     # Create a tensor of dim (D), D being the number of detections
-    all_detection_ids = torch.cat(detection_ids, dim=0)
+    all_detection_ids = torch.cat(detection_ids, dim=0).cpu()
 
     # associations is a tensor of dim (D, 128), D being the number of detections
     # compute euclidean distance between every pair of detections from this batch
@@ -80,6 +76,6 @@ def compute_association_loss(associations, detection_ids):
         loss += loss_per_id
         normalization += normalization_per_id
 
-    loss = loss / normalization
+    loss = (loss / normalization)
 
-    return loss
+    return torch.tensor(loss)

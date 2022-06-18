@@ -3,8 +3,9 @@ from torch import nn
 import numpy as np
 
 
-class SepConvTemp3D:
+class SepConvTemp3D(nn.Module):
     def __init__(self, depth_wise_parameters, point_wise_parameters, input_dim):
+        super(SepConvTemp3D, self).__init__()
         in_channels = depth_wise_parameters["in_channels"]
         kernel_size = depth_wise_parameters["kernel_size"]
         out_channels = depth_wise_parameters["out_channels"]
