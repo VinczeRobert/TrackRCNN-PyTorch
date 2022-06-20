@@ -51,17 +51,21 @@ class TrainEngine:
                 self.model.load_weights(self.config.weights_path, self.config.preprocess_weights,
                                         self.config.use_resnet101)
 
+        # self.model.finetune(3)
+
         self.model.to(self.device)
 
     def training(self):
         params = [p for p in self.model.parameters() if p.requires_grad]
-        optimizer = torch.optim.SGD(params, lr=self.config.learning_rate,
-                                    weight_decay=self.config.weight_decay,
-                                    momentum=self.config.momentum)
+        # optimizer = torch.optim.SGD(params, lr=self.config.learning_rate,
+        #                             weight_decay=self.config.weight_decay,
+        #                             momentum=self.config.momentum)
+        optimizer = torch.optim.Adam(params, lr=self.config.learning_rate)
 
         for epoch in range(self.config.num_epochs):
             # train for one epoch, printing every 10 iterations
             train_one_epoch(self.model, optimizer, self.data_loaders["train"], self.device, epoch, print_freq=10)
+            # evaluate(self.model, self.test_data_loaders["train"], device=self.device)
 
         checkpoint = {
             "epoch": self.config.num_epochs,
@@ -69,7 +73,7 @@ class TrainEngine:
             "optim_state": optimizer.state_dict()
         }
 
-        torch.save(checkpoint, self.config.weights_path)
+        torch.save(checkpoint, "experiment4.pth")
 
         print("Training complete.")
 

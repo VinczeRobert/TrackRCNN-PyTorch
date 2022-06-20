@@ -8,6 +8,7 @@ from references.pytorch_maskrcnn_coco.utils import compute_overlaps
 from trackrcnn_kitty.losses import compute_association_loss
 from trackrcnn_kitty.models.layers import SepConvTemp3D
 from trackrcnn_kitty.models.mask_rcnn import CustomMaskRCNN
+from trackrcnn_kitty.models.roi_heads import RoIHeadsCustom
 from trackrcnn_kitty.utils import validate_and_build_stacked_boxes, check_for_degenerate_boxes
 
 
@@ -51,11 +52,16 @@ class TrackRCNN(CustomMaskRCNN):
         # and the number of outputs was set by the authors to 128
         self.association_head = nn.Linear(in_features=4, out_features=128, bias=False)
 
+        # Override the RoI heads to have access to custom forward method
+        self.roi_heads = RoIHeadsCustom(backbone.out_channels,
+                                        num_classes,
+                                        self.roi_heads.mask_roi_pool,
+                                        self.roi_heads.mask_head,
+                                        self.roi_heads.mask_predictor)
+
     def forward(self, images, targets=None):
         if self.training and targets is None:
             raise ValueError("In training mode, targets should be passes")
-
-        stacked_boxes = validate_and_build_stacked_boxes(targets, self.training)
 
         original_image_sizes = []
         for img in images:

@@ -68,7 +68,7 @@ def get_data_loaders_for_kitti(dataset, task, train_batch_size, test_batch_size)
     return {task: torch.utils.data.DataLoader(
         dataset,
         batch_size=batch_size,
-        shuffle=shuffle,
+        shuffle=False,
         num_workers=4,
         collate_fn=collate_fn
     )}

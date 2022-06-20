@@ -11,8 +11,7 @@ from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
 from torchvision.models.detection.mask_rcnn import MaskRCNNPredictor
 from torchvision.models.detection.transform import GeneralizedRCNNTransform
 
-from trackrcnn_kitty.models.roi_heads import RoIHeadsCustom
-from trackrcnn_kitty.utils import check_for_degenerate_boxes, validate_and_build_stacked_boxes
+from trackrcnn_kitty.utils import check_for_degenerate_boxes
 
 model_urls = {
     "maskrcnn_resnet50_fpn_coco": "https://download.pytorch.org/models/maskrcnn_resnet50_fpn_coco-bf2d0c1e.pth",
@@ -52,13 +51,6 @@ class CustomMaskRCNN(MaskRCNN):
         max_size = 1333
         self.transform = GeneralizedRCNNTransform(min_size, max_size, image_mean, image_std)
 
-        # Override the RoI heads to have access to custom forward method
-        self.roi_heads = RoIHeadsCustom(backbone.out_channels,
-                                        num_classes,
-                                        self.roi_heads.mask_roi_pool,
-                                        self.roi_heads.mask_head,
-                                        self.roi_heads.mask_predictor)
-
         self.finetune(num_classes)
 
     def forward(self, images, targets=None):
@@ -94,7 +86,186 @@ class CustomMaskRCNN(MaskRCNN):
         return detections
 
     def __preprocess_coco_weights(self, state_dict):
-        pass
+        parameters = [param for param in self.named_parameters()]
+        converted_parameters = OrderedDict()
+
+        # First we get the weights for RPN
+        # converted_parameters["rpn.head.conv.weight"] = state_dict["rpn.conv_shared.weight"]
+        # converted_parameters["rpn.head.conv.bias"] = state_dict["rpn.conv_shared.bias"]
+        # converted_parameters["rpn.head.cls_logits.weight"] = state_dict["rpn.conv_class.weight"]
+        # converted_parameters["rpn.head.cls_logits.bias"] = state_dict["rpn.conv_class.bias"]
+        # converted_parameters["rpn.head.bbox_pred.weight"] = state_dict["rpn.conv_bbox.weight"]
+        # converted_parameters["rpn.head.bbox_pred.bias"] = state_dict["rpn.conv_bbox.weight"]
+
+        # Next come the mask head parameters
+        # converted_parameters["roi_heads.mask_head.mask_fcn1.weight"] = state_dict["mask.conv1.weight"]
+        # converted_parameters["roi_heads.mask_head.mask_fcn1.bias"] = state_dict["mask.conv1.bias"]
+        # converted_parameters["roi_heads.mask_head.mask_fcn2.weight"] = state_dict["mask.conv2.weight"]
+        # converted_parameters["roi_heads.mask_head.mask_fcn2.bias"] = state_dict["mask.conv2.bias"]
+        # converted_parameters["roi_heads.mask_head.mask_fcn3.weight"] = state_dict["mask.conv3.weight"]
+        # converted_parameters["roi_heads.mask_head.mask_fcn3.bias"] = state_dict["mask.conv3.bias"]
+        # converted_parameters["roi_heads.mask_head.mask_fcn4.weight"] = state_dict["mask.conv4.weight"]
+        # converted_parameters["roi_heads.mask_head.mask_fcn4.bias"] = state_dict["mask.conv4.bias"]
+        # converted_parameters["roi_heads.mask_predictor.conv5_mask.weight"] = state_dict["mask.deconv.weight"]
+        # converted_parameters["roi_heads.mask_predictor.conv5_mask.bias"] = state_dict["mask.deconv.bias"]
+        # converted_parameters["roi_heads.mask_head.mask_fcn_logits.weight"] = state_dict["mask.conv5.weight"]
+        # converted_parameters["roi_heads.mask_head.mask_fcn_logits.bias"] = state_dict["mask.conv5.bias"]
+
+        # Next come the box head parameters
+        # converted_parameters["roi_heads.box_head.fc6.weight"] = state_dict["classifier.conv1.weight"].reshape(
+        #     (1024, 256 * 7 * 7))
+        # converted_parameters["roi_heads.box_head.fc6.bias"] = state_dict["classifier.conv1.bias"]
+        # converted_parameters["roi_heads.box_head.fc7.weight"] = state_dict["classifier.conv2.weight"].reshape(
+        #     (1024, 1024))
+        # converted_parameters["roi_heads.box_head.fc7.bias"] = state_dict["classifier.conv2.bias"]
+        # converted_parameters["roi_heads.box_head.cls_score.weight"] = state_dict["classifier.linear_class.weight"]
+        # converted_parameters["roi_heads.box_head.cls_score.bias"] = state_dict["classifier.linear_class.bias"]
+        # converted_parameters["roi_heads.box_head.bbox_pred.weight"] = state_dict["classifier.linear_bbox.weight"]
+        # converted_parameters["roi_heads.box_head.bbox_pred.bias"] = state_dict["classifier.linear_bbox.bias"]
+
+        # Next come the FPN parameters
+        converted_parameters["backbone.fpn.inner_blocks.0.weight"] = state_dict["fpn.P2_conv1.weight"]
+        converted_parameters["backbone.fpn.inner_blocks.0.bias"] = state_dict["fpn.P2_conv1.bias"]
+        converted_parameters["backbone.fpn.inner_blocks.1.weight"] = state_dict["fpn.P3_conv1.weight"]
+        converted_parameters["backbone.fpn.inner_blocks.1.bias"] = state_dict["fpn.P3_conv1.bias"]
+        converted_parameters["backbone.fpn.inner_blocks.2.weight"] = state_dict["fpn.P4_conv1.weight"]
+        converted_parameters["backbone.fpn.inner_blocks.2.bias"] = state_dict["fpn.P4_conv1.bias"]
+        converted_parameters["backbone.fpn.inner_blocks.3.weight"] = state_dict["fpn.P5_conv1.weight"]
+        converted_parameters["backbone.fpn.inner_blocks.3.bias"] = state_dict["fpn.P5_conv1.bias"]
+        converted_parameters["backbone.fpn.layer_blocks.0.weight"] = state_dict["fpn.P2_conv2.1.weight"]
+        converted_parameters["backbone.fpn.layer_blocks.0.bias"] = state_dict["fpn.P2_conv2.1.bias"]
+        converted_parameters["backbone.fpn.layer_blocks.1.weight"] = state_dict["fpn.P3_conv2.1.weight"]
+        converted_parameters["backbone.fpn.layer_blocks.1.bias"] = state_dict["fpn.P3_conv2.1.bias"]
+        converted_parameters["backbone.fpn.layer_blocks.2.weight"] = state_dict["fpn.P4_conv2.1.weight"]
+        converted_parameters["backbone.fpn.layer_blocks.2.bias"] = state_dict["fpn.P4_conv2.1.bias"]
+        converted_parameters["backbone.fpn.layer_blocks.3.weight"] = state_dict["fpn.P5_conv2.1.weight"]
+        converted_parameters["backbone.fpn.layer_blocks.3.bias"] = state_dict["fpn.P5_conv2.1.bias"]
+
+        # Lastly we convert the backbone parameters which are by far the most
+        converted_parameters["backbone.body.conv1.weight"] = state_dict["fpn.C1.0.weight"]
+
+        # converted_parameters["backbone.body.layer1.0.conv1.weight"]
+        # converted_parameters["backbone.body.layer1.0.conv2.weight"]
+        # converted_parameters["backbone.body.layer1.0.conv3.weight"]
+
+        # 10 layers in ResNet layer1
+        converted_parameters["backbone.body.layer1.0.conv1.weight"] = state_dict["fpn.C2.0.conv1.weight"]
+        converted_parameters["backbone.body.layer1.0.conv2.weight"] = state_dict["fpn.C2.0.conv2.weight"]
+        converted_parameters["backbone.body.layer1.0.conv3.weight"] = state_dict["fpn.C2.0.conv3.weight"]
+        converted_parameters["backbone.body.layer1.1.conv1.weight"] = state_dict["fpn.C2.1.conv1.weight"]
+        converted_parameters["backbone.body.layer1.1.conv2.weight"] = state_dict["fpn.C2.1.conv2.weight"]
+        converted_parameters["backbone.body.layer1.1.conv3.weight"] = state_dict["fpn.C2.1.conv3.weight"]
+        converted_parameters["backbone.body.layer1.2.conv1.weight"] = state_dict["fpn.C2.2.conv1.weight"]
+        converted_parameters["backbone.body.layer1.2.conv2.weight"] = state_dict["fpn.C2.2.conv2.weight"]
+        converted_parameters["backbone.body.layer1.2.conv3.weight"] = state_dict["fpn.C2.2.conv3.weight"]
+        converted_parameters["backbone.body.layer1.0.downsample.0.weight"] = state_dict["fpn.C2.0.downsample.0.weight"]
+
+        # 13 layers in ResNet layer2
+        converted_parameters["backbone.body.layer2.0.conv1.weight"] = state_dict["fpn.C3.0.conv1.weight"]
+        converted_parameters["backbone.body.layer2.0.conv2.weight"] = state_dict["fpn.C3.0.conv2.weight"]
+        converted_parameters["backbone.body.layer2.0.conv3.weight"] = state_dict["fpn.C3.0.conv3.weight"]
+        converted_parameters["backbone.body.layer2.1.conv1.weight"] = state_dict["fpn.C3.1.conv1.weight"]
+        converted_parameters["backbone.body.layer2.1.conv2.weight"] = state_dict["fpn.C3.1.conv2.weight"]
+        converted_parameters["backbone.body.layer2.1.conv3.weight"] = state_dict["fpn.C3.1.conv3.weight"]
+        converted_parameters["backbone.body.layer2.2.conv1.weight"] = state_dict["fpn.C3.2.conv1.weight"]
+        converted_parameters["backbone.body.layer2.2.conv2.weight"] = state_dict["fpn.C3.2.conv2.weight"]
+        converted_parameters["backbone.body.layer2.2.conv3.weight"] = state_dict["fpn.C3.2.conv3.weight"]
+        converted_parameters["backbone.body.layer2.3.conv1.weight"] = state_dict["fpn.C3.3.conv1.weight"]
+        converted_parameters["backbone.body.layer2.3.conv2.weight"] = state_dict["fpn.C3.3.conv2.weight"]
+        converted_parameters["backbone.body.layer2.3.conv3.weight"] = state_dict["fpn.C3.3.conv3.weight"]
+        converted_parameters["backbone.body.layer2.0.downsample.0.weight"] = state_dict["fpn.C3.0.downsample.0.weight"]
+
+        # 70 layers in ResNet layer3
+        converted_parameters["backbone.body.layer3.0.conv1.weight"] = state_dict["fpn.C4.0.conv1.weight"]
+        converted_parameters["backbone.body.layer3.0.conv2.weight"] = state_dict["fpn.C4.0.conv2.weight"]
+        converted_parameters["backbone.body.layer3.0.conv3.weight"] = state_dict["fpn.C4.0.conv3.weight"]
+        converted_parameters["backbone.body.layer3.1.conv1.weight"] = state_dict["fpn.C4.1.conv1.weight"]
+        converted_parameters["backbone.body.layer3.1.conv2.weight"] = state_dict["fpn.C4.1.conv2.weight"]
+        converted_parameters["backbone.body.layer3.1.conv3.weight"] = state_dict["fpn.C4.1.conv3.weight"]
+        converted_parameters["backbone.body.layer3.2.conv1.weight"] = state_dict["fpn.C4.2.conv1.weight"]
+        converted_parameters["backbone.body.layer3.2.conv2.weight"] = state_dict["fpn.C4.2.conv2.weight"]
+        converted_parameters["backbone.body.layer3.2.conv3.weight"] = state_dict["fpn.C4.2.conv3.weight"]
+        converted_parameters["backbone.body.layer3.3.conv1.weight"] = state_dict["fpn.C4.3.conv1.weight"]
+        converted_parameters["backbone.body.layer3.3.conv2.weight"] = state_dict["fpn.C4.3.conv2.weight"]
+        converted_parameters["backbone.body.layer3.3.conv3.weight"] = state_dict["fpn.C4.3.conv3.weight"]
+        converted_parameters["backbone.body.layer3.4.conv1.weight"] = state_dict["fpn.C4.4.conv1.weight"]
+        converted_parameters["backbone.body.layer3.4.conv2.weight"] = state_dict["fpn.C4.4.conv2.weight"]
+        converted_parameters["backbone.body.layer3.4.conv3.weight"] = state_dict["fpn.C4.4.conv3.weight"]
+        converted_parameters["backbone.body.layer3.5.conv1.weight"] = state_dict["fpn.C4.5.conv1.weight"]
+        converted_parameters["backbone.body.layer3.5.conv2.weight"] = state_dict["fpn.C4.5.conv2.weight"]
+        converted_parameters["backbone.body.layer3.5.conv3.weight"] = state_dict["fpn.C4.5.conv3.weight"]
+        converted_parameters["backbone.body.layer3.6.conv1.weight"] = state_dict["fpn.C4.6.conv1.weight"]
+        converted_parameters["backbone.body.layer3.6.conv2.weight"] = state_dict["fpn.C4.6.conv2.weight"]
+        converted_parameters["backbone.body.layer3.6.conv3.weight"] = state_dict["fpn.C4.6.conv3.weight"]
+        converted_parameters["backbone.body.layer3.7.conv1.weight"] = state_dict["fpn.C4.7.conv1.weight"]
+        converted_parameters["backbone.body.layer3.7.conv2.weight"] = state_dict["fpn.C4.7.conv2.weight"]
+        converted_parameters["backbone.body.layer3.7.conv3.weight"] = state_dict["fpn.C4.7.conv3.weight"]
+        converted_parameters["backbone.body.layer3.8.conv1.weight"] = state_dict["fpn.C4.8.conv1.weight"]
+        converted_parameters["backbone.body.layer3.8.conv2.weight"] = state_dict["fpn.C4.8.conv2.weight"]
+        converted_parameters["backbone.body.layer3.8.conv3.weight"] = state_dict["fpn.C4.8.conv3.weight"]
+        converted_parameters["backbone.body.layer3.9.conv1.weight"] = state_dict["fpn.C4.9.conv1.weight"]
+        converted_parameters["backbone.body.layer3.9.conv2.weight"] = state_dict["fpn.C4.9.conv2.weight"]
+        converted_parameters["backbone.body.layer3.9.conv3.weight"] = state_dict["fpn.C4.9.conv3.weight"]
+        converted_parameters["backbone.body.layer3.10.conv1.weight"] = state_dict["fpn.C4.10.conv1.weight"]
+        converted_parameters["backbone.body.layer3.10.conv2.weight"] = state_dict["fpn.C4.10.conv2.weight"]
+        converted_parameters["backbone.body.layer3.10.conv3.weight"] = state_dict["fpn.C4.10.conv3.weight"]
+        converted_parameters["backbone.body.layer3.11.conv1.weight"] = state_dict["fpn.C4.11.conv1.weight"]
+        converted_parameters["backbone.body.layer3.11.conv2.weight"] = state_dict["fpn.C4.11.conv2.weight"]
+        converted_parameters["backbone.body.layer3.11.conv3.weight"] = state_dict["fpn.C4.11.conv3.weight"]
+        converted_parameters["backbone.body.layer3.12.conv1.weight"] = state_dict["fpn.C4.12.conv1.weight"]
+        converted_parameters["backbone.body.layer3.12.conv2.weight"] = state_dict["fpn.C4.12.conv2.weight"]
+        converted_parameters["backbone.body.layer3.12.conv3.weight"] = state_dict["fpn.C4.12.conv3.weight"]
+        converted_parameters["backbone.body.layer3.13.conv1.weight"] = state_dict["fpn.C4.13.conv1.weight"]
+        converted_parameters["backbone.body.layer3.13.conv2.weight"] = state_dict["fpn.C4.13.conv2.weight"]
+        converted_parameters["backbone.body.layer3.13.conv3.weight"] = state_dict["fpn.C4.13.conv3.weight"]
+        converted_parameters["backbone.body.layer3.14.conv1.weight"] = state_dict["fpn.C4.14.conv1.weight"]
+        converted_parameters["backbone.body.layer3.14.conv2.weight"] = state_dict["fpn.C4.14.conv2.weight"]
+        converted_parameters["backbone.body.layer3.14.conv3.weight"] = state_dict["fpn.C4.14.conv3.weight"]
+        converted_parameters["backbone.body.layer3.15.conv1.weight"] = state_dict["fpn.C4.15.conv1.weight"]
+        converted_parameters["backbone.body.layer3.15.conv2.weight"] = state_dict["fpn.C4.15.conv2.weight"]
+        converted_parameters["backbone.body.layer3.15.conv3.weight"] = state_dict["fpn.C4.15.conv3.weight"]
+        converted_parameters["backbone.body.layer3.16.conv1.weight"] = state_dict["fpn.C4.16.conv1.weight"]
+        converted_parameters["backbone.body.layer3.16.conv2.weight"] = state_dict["fpn.C4.16.conv2.weight"]
+        converted_parameters["backbone.body.layer3.16.conv3.weight"] = state_dict["fpn.C4.16.conv3.weight"]
+        converted_parameters["backbone.body.layer3.17.conv1.weight"] = state_dict["fpn.C4.17.conv1.weight"]
+        converted_parameters["backbone.body.layer3.17.conv2.weight"] = state_dict["fpn.C4.17.conv2.weight"]
+        converted_parameters["backbone.body.layer3.17.conv3.weight"] = state_dict["fpn.C4.17.conv3.weight"]
+        converted_parameters["backbone.body.layer3.18.conv1.weight"] = state_dict["fpn.C4.18.conv1.weight"]
+        converted_parameters["backbone.body.layer3.18.conv2.weight"] = state_dict["fpn.C4.18.conv2.weight"]
+        converted_parameters["backbone.body.layer3.18.conv3.weight"] = state_dict["fpn.C4.18.conv3.weight"]
+        converted_parameters["backbone.body.layer3.19.conv1.weight"] = state_dict["fpn.C4.19.conv1.weight"]
+        converted_parameters["backbone.body.layer3.19.conv2.weight"] = state_dict["fpn.C4.19.conv2.weight"]
+        converted_parameters["backbone.body.layer3.19.conv3.weight"] = state_dict["fpn.C4.19.conv3.weight"]
+        converted_parameters["backbone.body.layer3.20.conv1.weight"] = state_dict["fpn.C4.20.conv1.weight"]
+        converted_parameters["backbone.body.layer3.20.conv2.weight"] = state_dict["fpn.C4.20.conv2.weight"]
+        converted_parameters["backbone.body.layer3.20.conv3.weight"] = state_dict["fpn.C4.20.conv3.weight"]
+        converted_parameters["backbone.body.layer3.21.conv1.weight"] = state_dict["fpn.C4.21.conv1.weight"]
+        converted_parameters["backbone.body.layer3.21.conv2.weight"] = state_dict["fpn.C4.21.conv2.weight"]
+        converted_parameters["backbone.body.layer3.21.conv3.weight"] = state_dict["fpn.C4.21.conv3.weight"]
+        converted_parameters["backbone.body.layer3.22.conv1.weight"] = state_dict["fpn.C4.22.conv1.weight"]
+        converted_parameters["backbone.body.layer3.22.conv2.weight"] = state_dict["fpn.C4.22.conv2.weight"]
+        converted_parameters["backbone.body.layer3.22.conv3.weight"] = state_dict["fpn.C4.22.conv3.weight"]
+        converted_parameters["backbone.body.layer3.0.downsample.0.weight"] = state_dict["fpn.C4.0.downsample.0.weight"]
+
+        # 10 layers in ResNet layer1
+        converted_parameters["backbone.body.layer4.0.conv1.weight"] = state_dict["fpn.C5.0.conv1.weight"]
+        converted_parameters["backbone.body.layer4.0.conv2.weight"] = state_dict["fpn.C5.0.conv2.weight"]
+        converted_parameters["backbone.body.layer4.0.conv3.weight"] = state_dict["fpn.C5.0.conv3.weight"]
+        converted_parameters["backbone.body.layer4.1.conv1.weight"] = state_dict["fpn.C5.1.conv1.weight"]
+        converted_parameters["backbone.body.layer4.1.conv2.weight"] = state_dict["fpn.C5.1.conv2.weight"]
+        converted_parameters["backbone.body.layer4.1.conv3.weight"] = state_dict["fpn.C5.1.conv3.weight"]
+        converted_parameters["backbone.body.layer4.2.conv1.weight"] = state_dict["fpn.C5.2.conv1.weight"]
+        converted_parameters["backbone.body.layer4.2.conv2.weight"] = state_dict["fpn.C5.2.conv2.weight"]
+        converted_parameters["backbone.body.layer4.2.conv3.weight"] = state_dict["fpn.C5.2.conv3.weight"]
+        converted_parameters["backbone.body.layer4.0.downsample.0.weight"] = state_dict["fpn.C5.0.downsample.0.weight"]
+
+        # We need to load the weights for the bn layers as well even though they will be freezed
+        # converted_parameters["backbone.body.bn1.weight"] =
+        # converted_parameters["backbone.body.bn1.bias"] =
+        # converted_parameters["backbone.body.bn1.running_mean"] =
+        # converted_parameters["backbone.body.bn1.running_var"] =
+
+        return converted_parameters
 
     def load_weights(self, weights_path, preprocess_weights=False, use_resnet101=False):
         try:
@@ -106,7 +277,7 @@ class CustomMaskRCNN(MaskRCNN):
                     # from pretraining MaskRCNN on Coco, but they require some changes
                     # in order to load them in Pytorch
                     state_dict = self.__preprocess_coco_weights(state_dict)
-                self.load_state_dict(state_dict["model_state"])
+                self.load_state_dict(state_dict["model_state"], strict=False)
 
             else:
                 # If we don't have a valid weights path we are going to try
@@ -114,7 +285,7 @@ class CustomMaskRCNN(MaskRCNN):
                 # Unfortunately on PyTorch pretrained weights are available only for ResNet50
                 if use_resnet101 is False:
                     state_dict = load_state_dict_from_url(model_urls["maskrcnn_resnet50_fpn_coco"])
-                    self.load_state_dict(state_dict)
+                    self.load_state_dict(state_dict, strict=False)
 
             overwrite_eps(self, 0.0)
         except RuntimeError as e:
