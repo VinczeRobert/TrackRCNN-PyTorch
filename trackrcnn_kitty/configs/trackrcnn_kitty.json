@@ -6,25 +6,26 @@
 
   "train_batch_size": 8,
   "test_batch_size": 4,
-  "learning_rate": 0.0000005,
+  "learning_rate": 0.006,
   "num_epochs": 5,
   "momentum": 0.9,
   "weight_decay": 0.0001,
   "add_lr_scheduler": false,
 
   "add_associations": false,
-  "weights_path": "experiment4.pth",
+  "weights_path": "no",
   "preprocess_weights": false,
+  "pytorch_pretrained_model": true,
 
   "use_resnet101": false,
-  "trainable_backbone_layers": 0,
-  "freeze_batchnorm": true,
+  "trainable_backbone_layers": 3,
+  "freeze_batchnorm": false,
 
-  "task": "val",
+  "task": "train",
   "maskrcnn_params": {
     "anchor_sizes": [8, 16, 32, 64, 128],
     "aspect_ratios": [0.5, 1.0, 2.0],
-    "rpn_batch_size_per_image": 64
+    "rpn_batch_size_per_image": 32
   },
 
   "pretrained_backbone": false

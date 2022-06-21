@@ -17,14 +17,14 @@ class TrackRCNN(CustomMaskRCNN):
                  num_classes,
                  backbone,
                  pretrained_backbone=False,
+                 pytorch_pretrained_model=False,
                  maskrcnn_params=None,
                  fixed_size=None,
                  **kwargs):
         super(TrackRCNN, self).__init__(num_classes,
                                         backbone,
-                                        pretrained_backbone,
+                                        pytorch_pretrained_model,
                                         maskrcnn_params,
-                                        fixed_size,
                                         **kwargs)
 
         backbone_output_dim = backbone.out_channels

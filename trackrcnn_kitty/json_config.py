@@ -25,6 +25,7 @@ class JSONConfig:
         self.add_associations = data["add_associations"]
         self.weights_path = data["weights_path"]
         self.preprocess_weights = data["preprocess_weights"]
+        self.pytorch_pretrained_model = data["pytorch_pretrained_model"]
 
         self.use_resnet101 = data["use_resnet101"]
         self.trainable_backbone_layers = data["trainable_backbone_layers"]

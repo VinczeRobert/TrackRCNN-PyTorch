@@ -24,9 +24,8 @@ class CustomMaskRCNN(MaskRCNN):
     def __init__(self,
                  num_classes,
                  backbone,
-                 pretrained_backbone,
+                 pytorch_pretrained_model,
                  maskrcnn_params,
-                 fixed_size=(1024, 309),
                  **kwargs):
         # In some cases we create a new anchor generator to use smaller anchors (normally,
         # when the images and objects are too small)
@@ -51,7 +50,8 @@ class CustomMaskRCNN(MaskRCNN):
         max_size = 1333
         self.transform = GeneralizedRCNNTransform(min_size, max_size, image_mean, image_std)
 
-        self.finetune(num_classes)
+        if pytorch_pretrained_model is False:
+            self.finetune(num_classes)
 
     def forward(self, images, targets=None):
         if self.training and targets is None:
@@ -277,7 +277,9 @@ class CustomMaskRCNN(MaskRCNN):
                     # from pretraining MaskRCNN on Coco, but they require some changes
                     # in order to load them in Pytorch
                     state_dict = self.__preprocess_coco_weights(state_dict)
-                self.load_state_dict(state_dict["model_state"], strict=False)
+                    self.load_state_dict(state_dict, strict=False)
+                else:
+                    self.load_state_dict(state_dict["model_state"])
 
             else:
                 # If we don't have a valid weights path we are going to try
@@ -285,7 +287,7 @@ class CustomMaskRCNN(MaskRCNN):
                 # Unfortunately on PyTorch pretrained weights are available only for ResNet50
                 if use_resnet101 is False:
                     state_dict = load_state_dict_from_url(model_urls["maskrcnn_resnet50_fpn_coco"])
-                    self.load_state_dict(state_dict, strict=False)
+                    self.load_state_dict(state_dict)
 
             overwrite_eps(self, 0.0)
         except RuntimeError as e:

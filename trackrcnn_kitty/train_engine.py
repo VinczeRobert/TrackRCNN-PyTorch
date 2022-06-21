@@ -37,12 +37,13 @@ class TrainEngine:
         if self.config.add_associations:
             self.model = TrackRCNN(num_classes=self.dataset.num_classes,
                                    backbone=backbone,
+                                   pytorch_pretrained_model=self.config.pytorch_pretrained_model,
                                    pretrained_backbone=self.config.pretrained_backbone,
                                    maskrcnn_params=self.config.maskrcnn_params)
         else:
             self.model = CustomMaskRCNN(num_classes=self.dataset.num_classes,
                                         backbone=backbone,
-                                        pretrained_backbone=self.config.pretrained_backbone,
+                                        pytorch_pretrained_model=self.config.pytorch_pretrained_model,
                                         maskrcnn_params=self.config.maskrcnn_params)
 
             # If the backbone was no pretrained weights, we are going to try to use
@@ -51,16 +52,17 @@ class TrainEngine:
                 self.model.load_weights(self.config.weights_path, self.config.preprocess_weights,
                                         self.config.use_resnet101)
 
-        # self.model.finetune(3)
+        if self.config.pytorch_pretrained_model:
+            self.model.finetune(3)
 
         self.model.to(self.device)
 
     def training(self):
         params = [p for p in self.model.parameters() if p.requires_grad]
-        # optimizer = torch.optim.SGD(params, lr=self.config.learning_rate,
-        #                             weight_decay=self.config.weight_decay,
-        #                             momentum=self.config.momentum)
-        optimizer = torch.optim.Adam(params, lr=self.config.learning_rate)
+        optimizer = torch.optim.SGD(params, lr=self.config.learning_rate,
+                                    weight_decay=self.config.weight_decay,
+                                    momentum=self.config.momentum)
+        # optimizer = torch.optim.Adam(params, lr=self.config.learning_rate)
 
         for epoch in range(self.config.num_epochs):
             # train for one epoch, printing every 10 iterations
@@ -73,7 +75,7 @@ class TrainEngine:
             "optim_state": optimizer.state_dict()
         }
 
-        torch.save(checkpoint, "experiment4.pth")
+        torch.save(checkpoint, "june21.pth")
 
         print("Training complete.")
 
