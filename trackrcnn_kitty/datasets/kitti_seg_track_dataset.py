@@ -125,7 +125,7 @@ class KITTISegTrackDataset(Dataset):
                 # suppose all instances are not crowd
                 is_crowd = torch.zeros((num_objs,), dtype=torch.int64)
 
-                if task == "train":
+                if task:
                     image_path = mask_path.replace("annotations/instances", "images/training")
                 else:
                     image_path = mask_path.replace("annotations/val-instances", "images/validation")
