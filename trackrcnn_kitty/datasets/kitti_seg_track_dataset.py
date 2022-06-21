@@ -7,7 +7,11 @@ from torch.utils.data import Dataset
 
 
 class KITTISegTrackDataset(Dataset):
-    def __init__(self, root_path, transforms, train=True):
+    def __init__(self, root_path, transforms, train=True, sequence_no=None):
+        """
+        If sequence_no is not None then this class is going to load
+        the images only for that particular sequence number.
+        """
         self.root_path = root_path
         self.transforms = transforms
         self.num_classes = 3
@@ -16,7 +20,10 @@ class KITTISegTrackDataset(Dataset):
         self.mask_paths = []
         self.targets = []
 
-        self.__build_list(train)
+        self.__build_list(train, sequence_no)
+        self.image_paths = list(sorted(self.image_paths))
+        self.mask_paths = list(sorted(self.mask_paths))
+        self.targets = list(sorted(self.targets, key=lambda d: d['image_path']))
         print('Reading data is completed...')
 
     def __getitem__(self, idx):
@@ -30,12 +37,14 @@ class KITTISegTrackDataset(Dataset):
         mask = np.array(mask)
         obj_ids = np.unique(mask)
         obj_ids = obj_ids[1:]
+        obj_ids = np.asarray(list(filter(lambda x: x != 10000, obj_ids)))
         masks = mask == obj_ids[:, None, None]
         masks = torch.as_tensor(masks, dtype=torch.uint8)
 
         target["masks"] = masks
         image_id = torch.tensor([idx])
         target["image_id"] = image_id
+        target["image_path"] = image_path
 
         if self.transforms is not None:
             image, target = self.transforms(image, target)
@@ -45,11 +54,14 @@ class KITTISegTrackDataset(Dataset):
     def __len__(self):
         return len(self.image_paths)
 
-    def __build_list(self, task):
+    def __build_list(self, task, sequence_no):
         if task:
             masks_root_path = os.path.join(self.root_path, "annotations/instances")
         else:
             masks_root_path = os.path.join(self.root_path, "annotations/val-instances")
+
+        if sequence_no is not None:
+            masks_root_path = os.path.join(masks_root_path, sequence_no)
 
         for root, dirs, files in os.walk(masks_root_path):
             for file in files:
@@ -113,18 +125,20 @@ class KITTISegTrackDataset(Dataset):
                 # suppose all instances are not crowd
                 is_crowd = torch.zeros((num_objs,), dtype=torch.int64)
 
+                if task == "train":
+                    image_path = mask_path.replace("annotations/instances", "images/training")
+                else:
+                    image_path = mask_path.replace("annotations/val-instances", "images/validation")
+
+                self.image_paths.append(image_path)
+                self.mask_paths.append(mask_path)
+
                 # Suppose all instances are not crowd
                 self.targets.append({
                     "boxes": boxes,
                     "area": areas,
                     "labels": labels,
                     "object_ids": object_ids,
-                    "iscrowd": is_crowd
+                    "iscrowd": is_crowd,
+                    "image_path": image_path
                 })
-
-                if task == "train":
-                    image_path = mask_path.replace("annotations/instances", "images/training")
-                else:
-                    image_path = mask_path.replace("annotations/val-instances", "images/validation")
-                self.image_paths.append(image_path)
-                self.mask_paths.append(mask_path)
