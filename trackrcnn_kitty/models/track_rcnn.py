@@ -4,12 +4,11 @@ import numpy as np
 import torch
 from torch import nn, Tensor
 
-from references.pytorch_maskrcnn_coco.utils import compute_overlaps
 from trackrcnn_kitty.losses import compute_association_loss
 from trackrcnn_kitty.models.layers import SepConvTemp3D
 from trackrcnn_kitty.models.mask_rcnn import CustomMaskRCNN
 from trackrcnn_kitty.models.roi_heads import RoIHeadsCustom
-from trackrcnn_kitty.utils import validate_and_build_stacked_boxes, check_for_degenerate_boxes
+from trackrcnn_kitty.utils import check_for_degenerate_boxes, compute_overlaps
 
 
 class TrackRCNN(CustomMaskRCNN):
@@ -72,16 +71,16 @@ class TrackRCNN(CustomMaskRCNN):
         images, targets = self.transform(images, targets)
         check_for_degenerate_boxes(targets)
 
-        # Run the images through the backbone (resnet101) and fpn
+        # Run the inputs through the backbone (resnet101) and fpn
         feature_dict = self.backbone(images.tensors)
 
-        # Run the images through the Conv3D Layers for tracking
-        features = self.conv3d_temp_1.forward(feature_dict["pool"])  # DON'T HARDCODE THIS
-        features = self.relu(features)
-        feature_dict[str(len(feature_dict) + 1)] = features
-        features = self.conv3d_temp_2.forward(features)
-        features = self.relu(features)
-        feature_dict[len(feature_dict) + 1] = features
+        # Run the inputs through the Conv3D Layers for tracking
+        for layer_name, x in feature_dict.items():
+            temp = self.conv3d_temp_1(x)
+            temp = self.relu(temp)
+            temp = self.conv3d_temp_2(temp)
+            temp = self.relu(temp)
+            feature_dict[layer_name] = temp
 
         if isinstance(feature_dict, Tensor):
             feature_dict = OrderedDict([("0", feature_dict)])

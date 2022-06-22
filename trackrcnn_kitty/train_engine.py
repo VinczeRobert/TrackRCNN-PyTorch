@@ -11,7 +11,7 @@ from trackrcnn_kitty.datasets.transforms import get_transforms
 from trackrcnn_kitty.models.mask_rcnn import CustomMaskRCNN
 from trackrcnn_kitty.models.track_rcnn import TrackRCNN
 
-from trackrcnn_kitty.utils import write_detection_to_file, write_gt_to_file
+from trackrcnn_kitty.utils import write_detection_to_file, write_gt_to_file, get_device
 
 model_urls = {
     "maskrcnn_resnet50_fpn_coco": "https://download.pytorch.org/models/maskrcnn_resnet50_fpn_coco-bf2d0c1e.pth",
@@ -20,7 +20,7 @@ model_urls = {
 
 class TrainEngine:
     def __init__(self, config):
-        self.device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+        self.device = get_device()
         self.config = config
 
         train = True if self.config.task in ["train", "train+val"] else False
