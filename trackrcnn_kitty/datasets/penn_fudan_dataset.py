@@ -7,19 +7,29 @@ from torch.utils.data import Dataset
 
 
 class PennFudanDataset(Dataset):
-    def __init__(self, root, transforms):
+    def __init__(self, root, transforms, train):
         self.root = root
         self.transforms = transforms
         self.num_classes = 2
+        self.train = train
 
         # sort the images to make sure they are aligned
-        self.imgs = list(sorted(os.listdir(os.path.join(root, "PNGImages"))))
-        self.masks = list(sorted(os.listdir(os.path.join(root, "PNGMasks"))))
+        if train:
+            self.imgs = list(sorted(os.listdir(os.path.join(root, "PNGImages", "training"))))
+            self.masks = list(sorted(os.listdir(os.path.join(root, "PNGMasks", "training"))))
+        else:
+            self.imgs = list(sorted(os.listdir(os.path.join(root, "PNGImages", "validation"))))
+            self.masks = list(sorted(os.listdir(os.path.join(root, "PNGMasks", "validation"))))
 
     def __getitem__(self, idx):
         # load images and masks
-        img_path = os.path.join(self.root, "PNGImages", self.imgs[idx])
-        mask_path = os.path.join(self.root, "PNGMasks", self.masks[idx])
+        if self.train:
+            img_path = os.path.join(self.root, "PNGImages", "training", self.imgs[idx])
+            mask_path = os.path.join(self.root, "PNGMasks", "training", self.masks[idx])
+        else:
+            img_path = os.path.join(self.root, "PNGImages", "validation", self.imgs[idx])
+            mask_path = os.path.join(self.root, "PNGMasks", "validation", self.masks[idx])
+
         img = Image.open(img_path).convert("RGB")
 
         # note that we haven't converted the mask to RGB,

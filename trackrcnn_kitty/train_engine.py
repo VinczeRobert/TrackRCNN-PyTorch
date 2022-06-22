@@ -22,12 +22,7 @@ class TrainEngine:
     def __init__(self, config):
         self.device = get_device()
         self.config = config
-
-        train = True if self.config.task in ["train", "train+val"] else False
-        transforms = get_transforms(self.config.transforms_list, train)
-
-        self.dataset = get_dataset(config, transforms, train)
-        self.data_loaders = get_data_loaders(self.dataset, self.config)
+        self.data_loaders, num_classes = get_data_loaders(self.config)
 
         backbone = BackboneWithFPNCreator(trainable_backbone_layers=self.config.trainable_backbone_layers,
                                           use_resnet101=self.config.use_resnet101,
@@ -35,13 +30,13 @@ class TrainEngine:
                                           freeze_batchnorm=self.config.freeze_batchnorm).get_instance()
 
         if self.config.add_associations:
-            self.model = TrackRCNN(num_classes=self.dataset.num_classes,
+            self.model = TrackRCNN(num_classes=num_classes,
                                    backbone=backbone,
                                    pytorch_pretrained_model=self.config.pytorch_pretrained_model,
                                    pretrained_backbone=self.config.pretrained_backbone,
                                    maskrcnn_params=self.config.maskrcnn_params)
         else:
-            self.model = CustomMaskRCNN(num_classes=self.dataset.num_classes,
+            self.model = CustomMaskRCNN(num_classes=num_classes,
                                         backbone=backbone,
                                         pytorch_pretrained_model=self.config.pytorch_pretrained_model,
                                         maskrcnn_params=self.config.maskrcnn_params)
@@ -53,21 +48,17 @@ class TrainEngine:
                                         self.config.use_resnet101)
 
         if self.config.pytorch_pretrained_model:
-            self.model.finetune(3)
+            self.model.finetune(num_classes)
 
         self.model.to(self.device)
 
     def training(self):
         params = [p for p in self.model.parameters() if p.requires_grad]
-        optimizer = torch.optim.SGD(params, lr=self.config.learning_rate,
-                                    weight_decay=self.config.weight_decay,
-                                    momentum=self.config.momentum)
-        # optimizer = torch.optim.Adam(params, lr=self.config.learning_rate)
+        optimizer = torch.optim.Adam(params, lr=self.config.learning_rate)
 
         for epoch in range(self.config.num_epochs):
             # train for one epoch, printing every 10 iterations
             train_one_epoch(self.model, optimizer, self.data_loaders["train"], self.device, epoch, print_freq=10)
-            # evaluate(self.model, self.test_data_loaders["train"], device=self.device)
 
         checkpoint = {
             "epoch": self.config.num_epochs,
@@ -75,7 +66,7 @@ class TrainEngine:
             "optim_state": optimizer.state_dict()
         }
 
-        torch.save(checkpoint, "june21.pth")
+        torch.save(checkpoint, "june22almost.pth")
 
         print("Training complete.")
 

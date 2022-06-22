@@ -1,6 +1,5 @@
 import os
 
-import PIL
 import numpy as np
 import torch
 from PIL import Image
@@ -22,9 +21,9 @@ class KITTISegTrackDataset(Dataset):
         self.targets = []
 
         self.__build_list(train, sequence_no)
-        # self.image_paths = list(sorted(self.image_paths))
-        # self.mask_paths = list(sorted(self.mask_paths))
-        # self.targets = list(sorted(self.targets, key=lambda d: d['image_path']))
+        self.image_paths = list(sorted(self.image_paths))
+        self.mask_paths = list(sorted(self.mask_paths))
+        self.targets = list(sorted(self.targets, key=lambda d: d['image_path']))
         print('Reading data is completed...')
 
     def __getitem__(self, idx):
@@ -45,7 +44,6 @@ class KITTISegTrackDataset(Dataset):
         target["masks"] = masks
         image_id = torch.tensor([idx])
         target["image_id"] = image_id
-        # target["image_path"] = image_path # it will fail in training method, need to find a solution
 
         if self.transforms is not None:
             image, target = self.transforms(image, target)
@@ -123,7 +121,7 @@ class KITTISegTrackDataset(Dataset):
                 labels = torch.as_tensor(labels, dtype=torch.int64)
                 object_ids = torch.as_tensor(obj_ids, dtype=torch.int64)
 
-                # suppose all instances are not crowd
+                # suppose all instances are not crowd because we explicitly eliminated ignore regions
                 is_crowd = torch.zeros((num_objs,), dtype=torch.int64)
 
                 if task:
@@ -140,5 +138,6 @@ class KITTISegTrackDataset(Dataset):
                     "area": areas,
                     "labels": labels,
                     "object_ids": object_ids,
-                    "iscrowd": is_crowd
+                    "iscrowd": is_crowd,
+                    "image_path": image_path
                 })

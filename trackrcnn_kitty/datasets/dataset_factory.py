@@ -6,4 +6,4 @@ def get_dataset(config, transforms, train):
     if config.dataset == "KITTISegTrack":
         return KITTISegTrackDataset(config.dataset_path, transforms, train)
     elif config.dataset == "PennFudan":
-        return PennFudanDataset(config.dataset_path, transforms)
+        return PennFudanDataset(config.dataset_path, transforms, train)

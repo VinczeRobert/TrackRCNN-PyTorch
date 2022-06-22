@@ -34,6 +34,7 @@ class CustomMaskRCNN(MaskRCNN):
             if "anchor_sizes" in maskrcnn_params and "aspect_ratios" in maskrcnn_params:
                 anchor_sizes = tuple([(size,) for size in maskrcnn_params["anchor_sizes"]])
                 aspect_ratios = (tuple(maskrcnn_params["aspect_ratios"]),) * len(anchor_sizes)
+                anchor_sizes = tuple([8, 16, 32, 64, 128])
                 rpn_anchor_generator = AnchorGenerator(anchor_sizes, aspect_ratios)
 
                 maskrcnn_params.pop("anchor_sizes", None)
@@ -44,11 +45,11 @@ class CustomMaskRCNN(MaskRCNN):
         super(CustomMaskRCNN, self).__init__(backbone, COCO_DATASET_CLASSES, rpn_anchor_generator=rpn_anchor_generator,
                                              **kwargs)
         # Override the transform class to perform resize with fixed size the way it is described in the paper
-        image_mean = [0.485, 0.456, 0.406]
-        image_std = [0.229, 0.224, 0.225]
-        min_size = 800
-        max_size = 1333
-        self.transform = GeneralizedRCNNTransform(min_size, max_size, image_mean, image_std)
+        # image_mean = [0.485, 0.456, 0.406]
+        # image_std = [0.229, 0.224, 0.225]
+        # min_size = 800
+        # max_size = 1333
+        # self.transform = GeneralizedRCNNTransform(min_size, max_size, image_mean, image_std)
 
         if pytorch_pretrained_model is False:
             self.finetune(num_classes)
@@ -98,30 +99,30 @@ class CustomMaskRCNN(MaskRCNN):
             converted_parameters["rpn.head.bbox_pred.bias"] = state_dict["rpn.conv_bbox.weight"]
 
         # Next come the mask head parameters
-        converted_parameters["roi_heads.mask_head.mask_fcn1.weight"] = state_dict["mask.conv1.weight"]
-        converted_parameters["roi_heads.mask_head.mask_fcn1.bias"] = state_dict["mask.conv1.bias"]
-        converted_parameters["roi_heads.mask_head.mask_fcn2.weight"] = state_dict["mask.conv2.weight"]
-        converted_parameters["roi_heads.mask_head.mask_fcn2.bias"] = state_dict["mask.conv2.bias"]
-        converted_parameters["roi_heads.mask_head.mask_fcn3.weight"] = state_dict["mask.conv3.weight"]
-        converted_parameters["roi_heads.mask_head.mask_fcn3.bias"] = state_dict["mask.conv3.bias"]
-        converted_parameters["roi_heads.mask_head.mask_fcn4.weight"] = state_dict["mask.conv4.weight"]
-        converted_parameters["roi_heads.mask_head.mask_fcn4.bias"] = state_dict["mask.conv4.bias"]
-        converted_parameters["roi_heads.mask_predictor.conv5_mask.weight"] = state_dict["mask.deconv.weight"]
-        converted_parameters["roi_heads.mask_predictor.conv5_mask.bias"] = state_dict["mask.deconv.bias"]
-        converted_parameters["roi_heads.mask_predictor.mask_fcn_logits.weight"] = state_dict["mask.conv5.weight"]
-        converted_parameters["roi_heads.mask_predictor.mask_fcn_logits.bias"] = state_dict["mask.conv5.bias"]
+        # converted_parameters["roi_heads.mask_head.mask_fcn1.weight"] = state_dict["mask.conv1.weight"]
+        # converted_parameters["roi_heads.mask_head.mask_fcn1.bias"] = state_dict["mask.conv1.bias"]
+        # converted_parameters["roi_heads.mask_head.mask_fcn2.weight"] = state_dict["mask.conv2.weight"]
+        # converted_parameters["roi_heads.mask_head.mask_fcn2.bias"] = state_dict["mask.conv2.bias"]
+        # converted_parameters["roi_heads.mask_head.mask_fcn3.weight"] = state_dict["mask.conv3.weight"]
+        # converted_parameters["roi_heads.mask_head.mask_fcn3.bias"] = state_dict["mask.conv3.bias"]
+        # converted_parameters["roi_heads.mask_head.mask_fcn4.weight"] = state_dict["mask.conv4.weight"]
+        # converted_parameters["roi_heads.mask_head.mask_fcn4.bias"] = state_dict["mask.conv4.bias"]
+        # converted_parameters["roi_heads.mask_predictor.conv5_mask.weight"] = state_dict["mask.deconv.weight"]
+        # converted_parameters["roi_heads.mask_predictor.conv5_mask.bias"] = state_dict["mask.deconv.bias"]
+        # converted_parameters["roi_heads.mask_predictor.mask_fcn_logits.weight"] = state_dict["mask.conv5.weight"]
+        # converted_parameters["roi_heads.mask_predictor.mask_fcn_logits.bias"] = state_dict["mask.conv5.bias"]
 
         # Next come the box head parameters
-        converted_parameters["roi_heads.box_head.fc6.weight"] = state_dict["classifier.conv1.weight"].reshape(
-            (1024, 256 * 7 * 7))
-        converted_parameters["roi_heads.box_head.fc6.bias"] = state_dict["classifier.conv1.bias"]
-        converted_parameters["roi_heads.box_head.fc7.weight"] = state_dict["classifier.conv2.weight"].reshape(
-            (1024, 1024))
-        converted_parameters["roi_heads.box_head.fc7.bias"] = state_dict["classifier.conv2.bias"]
-        converted_parameters["roi_heads.box_predictor.cls_score.weight"] = state_dict["classifier.linear_class.weight"]
-        converted_parameters["roi_heads.box_predictor.cls_score.bias"] = state_dict["classifier.linear_class.bias"]
-        converted_parameters["roi_heads.box_predictor.bbox_pred.weight"] = state_dict["classifier.linear_bbox.weight"]
-        converted_parameters["roi_heads.box_predictor.bbox_pred.bias"] = state_dict["classifier.linear_bbox.bias"]
+        # converted_parameters["roi_heads.box_head.fc6.weight"] = state_dict["classifier.conv1.weight"].reshape(
+        #     (1024, 256 * 7 * 7))
+        # converted_parameters["roi_heads.box_head.fc6.bias"] = state_dict["classifier.conv1.bias"]
+        # converted_parameters["roi_heads.box_head.fc7.weight"] = state_dict["classifier.conv2.weight"].reshape(
+        #     (1024, 1024))
+        # converted_parameters["roi_heads.box_head.fc7.bias"] = state_dict["classifier.conv2.bias"]
+        # converted_parameters["roi_heads.box_predictor.cls_score.weight"] = state_dict["classifier.linear_class.weight"]
+        # converted_parameters["roi_heads.box_predictor.cls_score.bias"] = state_dict["classifier.linear_class.bias"]
+        # converted_parameters["roi_heads.box_predictor.bbox_pred.weight"] = state_dict["classifier.linear_bbox.weight"]
+        # converted_parameters["roi_heads.box_predictor.bbox_pred.bias"] = state_dict["classifier.linear_bbox.bias"]
 
         # Next come the FPN parameters
         converted_parameters["backbone.fpn.inner_blocks.0.weight"] = state_dict["fpn.P2_conv1.weight"]
