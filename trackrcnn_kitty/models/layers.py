@@ -2,6 +2,8 @@ import torch
 from torch import nn
 import numpy as np
 
+from trackrcnn_kitty.utils import get_device
+
 
 class SepConvTemp3D(nn.Module):
     def __init__(self, depth_wise_parameters, point_wise_parameters, input_dim):
@@ -14,7 +16,7 @@ class SepConvTemp3D(nn.Module):
         # We create input_dim number of layers for depth convolution
         self.conv3d_temp_depth_wise = [nn.Conv3d(in_channels=in_channels, kernel_size=kernel_size,
                                                  out_channels=out_channels, padding=padding,
-                                                 device=torch.device('cuda'), bias=False)] * input_dim
+                                                 device=get_device(), bias=False)] * input_dim
         self.__weights_initialization_depth_wise(kernel_size)
 
         in_channels = point_wise_parameters["in_channels"]
@@ -25,7 +27,7 @@ class SepConvTemp3D(nn.Module):
         # We create a single layer for point convolution
         self.conv3d_temp_point_wise = nn.Conv3d(in_channels=in_channels, kernel_size=kernel_size,
                                                 out_channels=out_channels,
-                                                device=torch.device('cuda'), bias=False)
+                                                device=get_device(), bias=False)
         self.__weights_initialization_point_wise([input_dim, input_dim])
 
     def __weights_initialization_depth_wise(self, filter_size):
@@ -37,7 +39,7 @@ class SepConvTemp3D(nn.Module):
         # iterate through each layer and manually set weights
         with torch.no_grad():
             for layer in self.conv3d_temp_depth_wise:
-                layer.weight = nn.Parameter(torch.as_tensor(filter_initializer, device=torch.device('cuda')))
+                layer.weight = nn.Parameter(torch.as_tensor(filter_initializer, device=get_device()))
 
     def __weights_initialization_point_wise(self, input_size):
         # we use an identity filter
@@ -48,7 +50,7 @@ class SepConvTemp3D(nn.Module):
         # manually set weights
         with torch.no_grad():
             self.conv3d_temp_point_wise.weight = nn.Parameter(torch.as_tensor(filter_initializer,
-                                                                              device=torch.device('cuda')))
+                                                                              device=get_device()))
 
     def forward(self, features):
         no_features = features.shape[1]
