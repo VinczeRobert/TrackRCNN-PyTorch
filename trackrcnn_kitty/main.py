@@ -5,7 +5,7 @@ from trackrcnn_kitty.json_config import JSONConfig
 from trackrcnn_kitty.train_engine import TrainEngine
 
 if __name__ == '__main__':
-    assert len(sys.argv) == 2, "Config file path is missing"
+    assert len(sys.argv) >= 2, "Config file path is missing"
     assert os.path.exists(sys.argv[1]), "Config file is invalid"
 
     config = JSONConfig.get_instance(sys.argv[1])
@@ -22,6 +22,3 @@ if __name__ == '__main__':
     else:
         print("Invalid task in configuration file! Stopping program.")
         sys.exit(-1)
-
-
-

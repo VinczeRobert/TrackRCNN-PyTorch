@@ -6,11 +6,9 @@ from torch import Tensor
 from torch.hub import load_state_dict_from_url
 from torchvision.models.detection import MaskRCNN
 from torchvision.models.detection._utils import overwrite_eps
-from torchvision.models.detection.anchor_utils import AnchorGenerator
 from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
 from torchvision.models.detection.mask_rcnn import MaskRCNNPredictor
 from torchvision.models.detection.transform import GeneralizedRCNNTransform
-
 from trackrcnn_kitty.utils import check_for_degenerate_boxes
 
 model_urls = {
@@ -24,34 +22,24 @@ class CustomMaskRCNN(MaskRCNN):
     def __init__(self,
                  num_classes,
                  backbone,
-                 pytorch_pretrained_model,
-                 maskrcnn_params,
-                 **kwargs):
-        # In some cases we create a new anchor generator to use smaller anchors (normally,
-        # when the images and objects are too small)
-        rpn_anchor_generator = None
-        if maskrcnn_params is not None and isinstance(maskrcnn_params, dict):
-            if "anchor_sizes" in maskrcnn_params and "aspect_ratios" in maskrcnn_params:
-                anchor_sizes = tuple([(size,) for size in maskrcnn_params["anchor_sizes"]])
-                aspect_ratios = (tuple(maskrcnn_params["aspect_ratios"]),) * len(anchor_sizes)
-                anchor_sizes = tuple([8, 16, 32, 64, 128])
-                rpn_anchor_generator = AnchorGenerator(anchor_sizes, aspect_ratios)
+                 config):
 
-                maskrcnn_params.pop("anchor_sizes", None)
-                maskrcnn_params.pop("aspect_ratios", None)
-
-        kwargs.update(maskrcnn_params)
         # The number of classes of the COCO dataset that the backbone is pretrained one is 91
-        super(CustomMaskRCNN, self).__init__(backbone, COCO_DATASET_CLASSES, rpn_anchor_generator=rpn_anchor_generator,
-                                             **kwargs)
-        # Override the transform class to perform resize with fixed size the way it is described in the paper
-        # image_mean = [0.485, 0.456, 0.406]
-        # image_std = [0.229, 0.224, 0.225]
-        # min_size = 800
-        # max_size = 1333
-        # self.transform = GeneralizedRCNNTransform(min_size, max_size, image_mean, image_std)
+        super(CustomMaskRCNN, self).__init__(backbone, COCO_DATASET_CLASSES, **config.maskrcnn_params)
 
-        if pytorch_pretrained_model is False:
+        if config.fixed_image_size:
+            self.train_image_size = config.train_image_size
+            self.test_image_size = config.test_image_size
+            # Override the transform class to perform resize with fixed size the way it is described in the paper
+            image_mean = [0.485, 0.456, 0.406]
+            image_std = [0.229, 0.224, 0.225]
+            min_size = 800
+            max_size = 1333
+            # If validation is done instead of training, fixed_size will be changed
+            self.transform = GeneralizedRCNNTransform(min_size, max_size, image_mean, image_std,
+                                                      fixed_size=self.train_image_size)
+
+        if config.pytorch_pretrained_model is False:
             self.finetune(num_classes)
 
     def forward(self, images, targets=None):
@@ -89,14 +77,14 @@ class CustomMaskRCNN(MaskRCNN):
     def __preprocess_coco_weights(self, state_dict):
         converted_parameters = OrderedDict()
 
-        # First we get the weights for RPN if sizes match
-        if self.rpn.head.conv.in_channels == state_dict["rpn.conv_shared.weight"].shape[0]:
-            converted_parameters["rpn.head.conv.weight"] = state_dict["rpn.conv_shared.weight"]
-            converted_parameters["rpn.head.conv.bias"] = state_dict["rpn.conv_shared.bias"]
-            converted_parameters["rpn.head.cls_logits.weight"] = state_dict["rpn.conv_class.weight"]
-            converted_parameters["rpn.head.cls_logits.bias"] = state_dict["rpn.conv_class.bias"]
-            converted_parameters["rpn.head.bbox_pred.weight"] = state_dict["rpn.conv_bbox.weight"]
-            converted_parameters["rpn.head.bbox_pred.bias"] = state_dict["rpn.conv_bbox.weight"]
+        # # First we get the weights for RPN if sizes match
+        # if self.rpn.head.conv.in_channels == state_dict["rpn.conv_shared.weight"].shape[0]:
+        #     converted_parameters["rpn.head.conv.weight"] = state_dict["rpn.conv_shared.weight"]
+        #     converted_parameters["rpn.head.conv.bias"] = state_dict["rpn.conv_shared.bias"]
+        #     converted_parameters["rpn.head.cls_logits.weight"] = state_dict["rpn.conv_class.weight"]
+        #     converted_parameters["rpn.head.cls_logits.bias"] = state_dict["rpn.conv_class.bias"]
+        #     converted_parameters["rpn.head.bbox_pred.weight"] = state_dict["rpn.conv_bbox.weight"]
+        #     converted_parameters["rpn.head.bbox_pred.bias"] = state_dict["rpn.conv_bbox.weight"]
 
         # Next come the mask head parameters
         # converted_parameters["roi_heads.mask_head.mask_fcn1.weight"] = state_dict["mask.conv1.weight"]
@@ -125,22 +113,22 @@ class CustomMaskRCNN(MaskRCNN):
         # converted_parameters["roi_heads.box_predictor.bbox_pred.bias"] = state_dict["classifier.linear_bbox.bias"]
 
         # Next come the FPN parameters
-        converted_parameters["backbone.fpn.inner_blocks.0.weight"] = state_dict["fpn.P2_conv1.weight"]
-        converted_parameters["backbone.fpn.inner_blocks.0.bias"] = state_dict["fpn.P2_conv1.bias"]
-        converted_parameters["backbone.fpn.inner_blocks.1.weight"] = state_dict["fpn.P3_conv1.weight"]
-        converted_parameters["backbone.fpn.inner_blocks.1.bias"] = state_dict["fpn.P3_conv1.bias"]
-        converted_parameters["backbone.fpn.inner_blocks.2.weight"] = state_dict["fpn.P4_conv1.weight"]
-        converted_parameters["backbone.fpn.inner_blocks.2.bias"] = state_dict["fpn.P4_conv1.bias"]
-        converted_parameters["backbone.fpn.inner_blocks.3.weight"] = state_dict["fpn.P5_conv1.weight"]
-        converted_parameters["backbone.fpn.inner_blocks.3.bias"] = state_dict["fpn.P5_conv1.bias"]
-        converted_parameters["backbone.fpn.layer_blocks.0.weight"] = state_dict["fpn.P2_conv2.1.weight"]
-        converted_parameters["backbone.fpn.layer_blocks.0.bias"] = state_dict["fpn.P2_conv2.1.bias"]
-        converted_parameters["backbone.fpn.layer_blocks.1.weight"] = state_dict["fpn.P3_conv2.1.weight"]
-        converted_parameters["backbone.fpn.layer_blocks.1.bias"] = state_dict["fpn.P3_conv2.1.bias"]
-        converted_parameters["backbone.fpn.layer_blocks.2.weight"] = state_dict["fpn.P4_conv2.1.weight"]
-        converted_parameters["backbone.fpn.layer_blocks.2.bias"] = state_dict["fpn.P4_conv2.1.bias"]
-        converted_parameters["backbone.fpn.layer_blocks.3.weight"] = state_dict["fpn.P5_conv2.1.weight"]
-        converted_parameters["backbone.fpn.layer_blocks.3.bias"] = state_dict["fpn.P5_conv2.1.bias"]
+        # converted_parameters["backbone.fpn.inner_blocks.0.weight"] = state_dict["fpn.P2_conv1.weight"]
+        # converted_parameters["backbone.fpn.inner_blocks.0.bias"] = state_dict["fpn.P2_conv1.bias"]
+        # converted_parameters["backbone.fpn.inner_blocks.1.weight"] = state_dict["fpn.P3_conv1.weight"]
+        # converted_parameters["backbone.fpn.inner_blocks.1.bias"] = state_dict["fpn.P3_conv1.bias"]
+        # converted_parameters["backbone.fpn.inner_blocks.2.weight"] = state_dict["fpn.P4_conv1.weight"]
+        # converted_parameters["backbone.fpn.inner_blocks.2.bias"] = state_dict["fpn.P4_conv1.bias"]
+        # converted_parameters["backbone.fpn.inner_blocks.3.weight"] = state_dict["fpn.P5_conv1.weight"]
+        # converted_parameters["backbone.fpn.inner_blocks.3.bias"] = state_dict["fpn.P5_conv1.bias"]
+        # converted_parameters["backbone.fpn.layer_blocks.0.weight"] = state_dict["fpn.P2_conv2.1.weight"]
+        # converted_parameters["backbone.fpn.layer_blocks.0.bias"] = state_dict["fpn.P2_conv2.1.bias"]
+        # converted_parameters["backbone.fpn.layer_blocks.1.weight"] = state_dict["fpn.P3_conv2.1.weight"]
+        # converted_parameters["backbone.fpn.layer_blocks.1.bias"] = state_dict["fpn.P3_conv2.1.bias"]
+        # converted_parameters["backbone.fpn.layer_blocks.2.weight"] = state_dict["fpn.P4_conv2.1.weight"]
+        # converted_parameters["backbone.fpn.layer_blocks.2.bias"] = state_dict["fpn.P4_conv2.1.bias"]
+        # converted_parameters["backbone.fpn.layer_blocks.3.weight"] = state_dict["fpn.P5_conv2.1.weight"]
+        # converted_parameters["backbone.fpn.layer_blocks.3.bias"] = state_dict["fpn.P5_conv2.1.bias"]
 
         # Lastly we convert the backbone parameters which are by far the most
         converted_parameters["backbone.body.conv1.weight"] = state_dict["fpn.C1.0.weight"]
@@ -261,11 +249,11 @@ class CustomMaskRCNN(MaskRCNN):
         bn_layer_names.extend([p for p in state_dict if 'downsample' in p])
         # Perform some name changes on them
         new_layer_names = [p.replace('fpn.', '').
-                              replace('C2', 'backbone.body.layer1').
-                              replace('C3', 'backbone.body.layer2').
-                              replace('C4', 'backbone.body.layer3').
-                              replace('C5', 'backbone.body.layer4')
-                          for p in bn_layer_names]
+                               replace('C2', 'backbone.body.layer1').
+                               replace('C3', 'backbone.body.layer2').
+                               replace('C4', 'backbone.body.layer3').
+                               replace('C5', 'backbone.body.layer4')
+                           for p in bn_layer_names]
 
         for idx in range(len(bn_layer_names)):
             converted_parameters[new_layer_names[idx]] = state_dict[bn_layer_names[idx]]
@@ -304,8 +292,8 @@ class CustomMaskRCNN(MaskRCNN):
                 if use_resnet101 is False:
                     state_dict = load_state_dict_from_url(model_urls["maskrcnn_resnet50_fpn_coco"])
                     self.load_state_dict(state_dict)
+                    overwrite_eps(self, 0.0)
 
-            overwrite_eps(self, 0.0)
         except RuntimeError as e:
             print("There is no valid set of weights that can be loaded."
                   "Training will start with newly initialized weights!")

@@ -2,29 +2,23 @@
   "dataset": "PennFudan",
   "dataset_path": "D:\\Robert\\PennFudanPed",
   "image_size": [309, 1024],
-  "image_transforms": ["flip"],
+  "transforms_list": ["flip"],
 
-  "train_batch_size": 4,
+  "train_batch_size": 2,
   "test_batch_size": 1,
   "learning_rate": 0.005,
   "num_epochs": 10,
-  "momentum": 0.9,
-  "weight_decay": 0.0005,
-  "add_lr_scheduler": true,
 
   "add_associations": false,
-  "weights_path": "weights/penn_fudan.pth",
+
+  "pytorch_pretrained_model": true,
+  "weights_path": "new",
   "preprocess_weights": false,
 
   "use_resnet101": false,
-  "trainable_backbone_layers": 4,
+  "trainable_backbone_layers": 3,
   "freeze_batchnorm": true,
 
-  "task": "train",
-  "maskrcnn_params": {
-    "anchor_sizes": [32, 64, 128, 256, 512],
-    "aspect_ratios": [0.5, 1.0, 2.0],
-    "rpn_batch_size_per_image": 256
-  },
+  "task": "train+val",
   "pretrained_backbone": false
 }

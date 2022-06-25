@@ -1,32 +1,33 @@
 {
   "dataset": "KITTISegTrack",
   "dataset_path": "D:\\Robert\\KITTITrackSegDataset",
-  "image_size": [1152, 320],
-  "image_transforms": ["flip"],
+  "train_image_size": [1024, 309],
+  "test_image_size": [1242, 375],
+  "fixed_image_size": false,
+  "transforms_list": ["flip"],
 
-  "train_batch_size": 8,
+  "train_batch_size": 6,
   "test_batch_size": 4,
-  "learning_rate": 0.0000005,
-  "num_epochs": 10,
-  "momentum": 0,
-  "weight_decay": 0,
-  "add_lr_scheduler": false,
+  "learning_rate": 0.0005,
+  "num_epochs": 20,
 
-  "add_associations": true,
-  "weights_path": "june22almost.pth",
-  "preprocess_weights": false,
+  "add_associations": false,
+
   "pytorch_pretrained_model": false,
+  "weights_path": "weights/best_weights_so_far_50.pth",
+  "preprocess_weights": false,
+  "epochs_to_validate": 5,
 
   "use_resnet101": false,
-  "trainable_backbone_layers": 3,
+  "trainable_backbone_layers": 4,
   "freeze_batchnorm": true,
+  "add_last_layer": true,
+  "fpn_out_channels": 256,
+  "pretrained_backbone": false,
 
-  "task": "val",
+  "task": "save_preds",
+
   "maskrcnn_params": {
-    "anchor_sizes": [8, 16, 32, 64, 128],
-    "aspect_ratios": [0.5, 1.0, 2.0],
-    "rpn_batch_size_per_image": 256
-  },
 
-  "pretrained_backbone": false
+  }
 }

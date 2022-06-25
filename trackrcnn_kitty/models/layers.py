@@ -5,6 +5,14 @@ import numpy as np
 from trackrcnn_kitty.utils import get_device
 
 
+class Identity(torch.nn.Module):
+    def __init__(self):
+        super(Identity, self).__init__()
+
+    def forward(self, x):
+        return x
+
+
 class SepConvTemp3D(nn.Module):
     def __init__(self, depth_wise_parameters, point_wise_parameters, input_dim):
         super(SepConvTemp3D, self).__init__()

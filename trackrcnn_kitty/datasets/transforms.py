@@ -1,24 +1,50 @@
 import torchvision.transforms.functional as TF
-
-import references.pytorch_detection.transforms as T
-
-
-# There seems to be a gamma correction in the main
-# example of TrackRCNN but it is not known yet what values they used
-# so we don't use this class yet
-# TODO: check what's up with this
-class GammaCorrection:
-    def __init__(self):
-        self.range = (-0.05, 0.05)
-
-    def __call__(self, x):
-        x = TF.adjust_gamma(x, self.range[0])
-        x = TF.adjust_gamma(x, self.range[1])
-        return x
+import random
 
 
-def get_transforms(transforms_list, train):
-    transforms = [T.ToTensor()]
-    if "flip" in transforms_list and train:
-        transforms.append(T.RandomHorizontalFlip(0.5))
-    return T.Compose(transforms)
+# Gamma correction:
+# 1. Is applied only on the image
+# 2. It is applied after normalization so we can't include it the initial transforms list
+class GammaCorrection(object):
+    def __init__(self, g_range):
+        self.g_range = g_range
+
+    def __call__(self, image):
+        gamma = random.uniform(self.g_range[0], self.g_range[1])
+
+        if gamma == 0:
+            return image
+        else:
+            return TF.adjust_gamma(image, gamma, gain=1)
+
+
+class Compose(object):
+    def __init__(self, transforms):
+        self.transforms = transforms
+
+    def __call__(self, image, target):
+        for t in self.transforms:
+            image, target = t(image, target)
+        return image, target
+
+
+class RandomHorizontalFlip(object):
+    def __init__(self, prob):
+        self.prob = prob
+
+    def __call__(self, image, target):
+        if random.random() < self.prob:
+            height, width = image.shape[-2:]
+            image = image.flip(-1)
+            bbox = target["boxes"]
+            bbox[:, [0, 2]] = width - bbox[:, [2, 0]]
+            target["boxes"] = bbox
+            if "masks" in target:
+                target["masks"] = target["masks"].flip(-1)
+        return image, target
+
+
+class ToTensor(object):
+    def __call__(self, image, target):
+        image = TF.to_tensor(image)
+        return image, target

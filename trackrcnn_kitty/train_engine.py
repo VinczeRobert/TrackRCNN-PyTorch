@@ -1,13 +1,12 @@
 import os
 
 import torch
+from torch.utils.tensorboard import SummaryWriter
 
 from references.pytorch_detection.engine import train_one_epoch, evaluate
 from references.pytorch_detection.utils import MetricLogger
 from trackrcnn_kitty.creators.backbone_with_fpn_creator import BackboneWithFPNCreator
 from trackrcnn_kitty.creators.data_loader_creator import get_data_loaders
-from trackrcnn_kitty.datasets.dataset_factory import get_dataset
-from trackrcnn_kitty.datasets.transforms import get_transforms
 from trackrcnn_kitty.models.mask_rcnn import CustomMaskRCNN
 from trackrcnn_kitty.models.track_rcnn import TrackRCNN
 
@@ -23,23 +22,24 @@ class TrainEngine:
         self.device = get_device()
         self.config = config
         self.data_loaders, num_classes = get_data_loaders(self.config)
+        self.writer = SummaryWriter("tensorboard/robert-maskrcnn-exp1")
 
         backbone = BackboneWithFPNCreator(trainable_backbone_layers=self.config.trainable_backbone_layers,
                                           use_resnet101=self.config.use_resnet101,
                                           pretrained_backbone=self.config.pretrained_backbone,
-                                          freeze_batchnorm=self.config.freeze_batchnorm).get_instance()
+                                          freeze_batchnorm=self.config.freeze_batchnorm,
+                                          fpn_out_channels=self.config.fpn_out_channels,
+                                          add_last_layer=self.config.add_last_layer).get_instance()
 
         if self.config.add_associations:
             self.model = TrackRCNN(num_classes=num_classes,
                                    backbone=backbone,
-                                   pytorch_pretrained_model=self.config.pytorch_pretrained_model,
-                                   pretrained_backbone=self.config.pretrained_backbone,
-                                   maskrcnn_params=self.config.maskrcnn_params)
+                                   config=self.config,
+                                   )
         else:
             self.model = CustomMaskRCNN(num_classes=num_classes,
                                         backbone=backbone,
-                                        pytorch_pretrained_model=self.config.pytorch_pretrained_model,
-                                        maskrcnn_params=self.config.maskrcnn_params)
+                                        config=self.config)
 
             # If the backbone was no pretrained weights, we are going to try to use
             # pretrained weights for the whole model
@@ -54,11 +54,13 @@ class TrainEngine:
 
     def training(self):
         params = [p for p in self.model.parameters() if p.requires_grad]
-        optimizer = torch.optim.Adam(params, lr=self.config.learning_rate)
+        # optimizer = torch.optim.Adam(params, lr=self.config.learning_rate)
+        optimizer = torch.optim.SGD(params, lr=self.config.learning_rate, momentum=0.9, weight_decay=0.005)
 
         for epoch in range(self.config.num_epochs):
             # train for one epoch, printing every 10 iterations
-            train_one_epoch(self.model, optimizer, self.data_loaders["train"], self.device, epoch, print_freq=10)
+            train_one_epoch(self.model, optimizer, self.data_loaders["train"], self.device, epoch, print_freq=10,
+                            writer=self.writer)
 
         checkpoint = {
             "epoch": self.config.num_epochs,
@@ -71,28 +73,41 @@ class TrainEngine:
         print("Training complete.")
 
     def evaluate(self):
+        self.model.transform.fixed_size = self.config.test_image_size if self.config.fixed_image_size else None
         evaluate(self.model, self.data_loaders["test"], device=self.device)
 
     def training_and_evaluating(self):
         params = [p for p in self.model.parameters() if p.requires_grad]
         optimizer = torch.optim.Adam(params, lr=self.config.learning_rate)
+        epoch = -1
 
         for epoch in range(self.config.num_epochs):
             # train for one epoch, printing every 10 iterations
-            train_one_epoch(self.model, optimizer, self.data_loaders["train"], self.device, epoch, print_freq=10)
-            evaluate(self.model, self.data_loaders["test"], device=self.device)
+            self.model.transform.fixed_size = self.config.train_image_size if self.config.fixed_image_size else None
+            train_one_epoch(self.model, optimizer, self.data_loaders["train"], self.device, epoch, print_freq=10,
+                            writer=self.writer)
 
-        checkpoint = {
-            "epoch": self.config.num_epochs,
-            "model_state": self.model.state_dict(),
-            "optim_state": optimizer.state_dict()
-        }
+            # By default we validate every 5 epochs
+            if (epoch + 1) % self.config.epochs_to_validate == 0:
+                self.model.transform.fixed_size = self.config.test_image_size if self.config.fixed_image_size else None
+                evaluate(self.model, self.data_loaders["test"], device=self.device)
 
-        torch.save(checkpoint, self.config.weights_path)
+            checkpoint = {
+                "epoch": self.config.num_epochs,
+                "model_state": self.model.state_dict(),
+                "optim_state": optimizer.state_dict()
+            }
+
+            try:
+                torch.save(checkpoint, f"night{epoch}.pth")
+            except OSError:
+                print("Error at saving!")
+                continue
 
         print("Training complete.")
 
     def evaluate_and_save_results(self, directory):
+        self.model.transform.fixed_size = self.config.test_image_size if self.config.fixed_image_size else None
         self.model.load_state_dict(torch.load(self.config.weights_path)["model_state"])
         self.model.eval()
         metric_logger = MetricLogger(delimiter=" ")
