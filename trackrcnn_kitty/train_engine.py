@@ -78,14 +78,18 @@ class TrainEngine:
 
     def training_and_evaluating(self):
         params = [p for p in self.model.parameters() if p.requires_grad]
-        optimizer = torch.optim.Adam(params, lr=self.config.learning_rate)
-        epoch = -1
+        optimizer = torch.optim.SGD(params, lr=self.config.learning_rate,
+                                    momentum=0.9, weight_decay=0.0005)
+        # and a learning rate scheduler
+        lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer,
+                                                       step_size=3,
+                                                       gamma=0.1)
 
         for epoch in range(self.config.num_epochs):
             # train for one epoch, printing every 10 iterations
             self.model.transform.fixed_size = self.config.train_image_size if self.config.fixed_image_size else None
-            train_one_epoch(self.model, optimizer, self.data_loaders["train"], self.device, epoch, print_freq=10,
-                            writer=self.writer)
+            train_one_epoch(self.model, optimizer, self.data_loaders["train"], self.device, epoch, print_freq=10)
+            lr_scheduler.step()
 
             # By default we validate every 5 epochs
             if (epoch + 1) % self.config.epochs_to_validate == 0:

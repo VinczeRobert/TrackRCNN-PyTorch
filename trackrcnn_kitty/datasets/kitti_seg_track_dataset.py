@@ -35,12 +35,12 @@ class KITTISegTrackDataset(Dataset):
         image = Image.open(image_path).convert("RGB")
         mask = Image.open(mask_path)
         mask = np.array(mask)
-        obj_ids = np.unique(mask)
-        obj_ids = obj_ids[1:]
-        obj_ids = np.asarray(list(filter(lambda x: x != 10000, obj_ids)))
+        obj_ids = target["obj_ids"]
         masks = mask == obj_ids[:, None, None]
         masks = torch.as_tensor(masks, dtype=torch.uint8)
+        obj_ids = torch.as_tensor(obj_ids, dtype=torch.int64)
 
+        target["obj_ids"] = obj_ids
         target["masks"] = masks
         image_id = torch.tensor([idx])
         target["image_id"] = image_id
@@ -119,7 +119,6 @@ class KITTISegTrackDataset(Dataset):
                 boxes = torch.as_tensor(boxes, dtype=torch.float32)
                 areas = torch.as_tensor(areas, dtype=torch.float32)
                 labels = torch.as_tensor(labels, dtype=torch.int64)
-                object_ids = torch.as_tensor(obj_ids, dtype=torch.int64)
 
                 # suppose all instances are not crowd because we explicitly eliminated ignore regions
                 is_crowd = torch.zeros((num_objs,), dtype=torch.int64)
@@ -137,7 +136,7 @@ class KITTISegTrackDataset(Dataset):
                     "boxes": boxes,
                     "area": areas,
                     "labels": labels,
-                    "object_ids": object_ids,
+                    "obj_ids": obj_ids,
                     "iscrowd": is_crowd,
                     "image_path": image_path
                 })

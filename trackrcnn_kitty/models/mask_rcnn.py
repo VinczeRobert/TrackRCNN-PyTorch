@@ -6,6 +6,7 @@ from torch import Tensor
 from torch.hub import load_state_dict_from_url
 from torchvision.models.detection import MaskRCNN
 from torchvision.models.detection._utils import overwrite_eps
+from torchvision.models.detection.anchor_utils import AnchorGenerator
 from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
 from torchvision.models.detection.mask_rcnn import MaskRCNNPredictor
 from torchvision.models.detection.transform import GeneralizedRCNNTransform
@@ -24,8 +25,19 @@ class CustomMaskRCNN(MaskRCNN):
                  backbone,
                  config):
 
+        rpn_anchor_generator = None
+        if config.maskrcnn_params is not None and isinstance(config.maskrcnn_params, dict):
+            if "anchor_sizes" in config.maskrcnn_params and "aspect_ratios" in config.maskrcnn_params:
+                anchor_sizes = tuple([(size,) for size in config.maskrcnn_params["anchor_sizes"]])
+                aspect_ratios = (tuple(config.maskrcnn_params["aspect_ratios"]),) * len(anchor_sizes)
+                rpn_anchor_generator = AnchorGenerator(anchor_sizes, aspect_ratios)
+
+                config.maskrcnn_params.pop("anchor_sizes", None)
+                config. maskrcnn_params.pop("aspect_ratios", None)
+
         # The number of classes of the COCO dataset that the backbone is pretrained one is 91
-        super(CustomMaskRCNN, self).__init__(backbone, COCO_DATASET_CLASSES, **config.maskrcnn_params)
+        super(CustomMaskRCNN, self).__init__(backbone, COCO_DATASET_CLASSES, rpn_anchor_generator=rpn_anchor_generator,
+                                             **config.maskrcnn_params)
 
         if config.fixed_image_size:
             self.train_image_size = config.train_image_size
@@ -283,7 +295,7 @@ class CustomMaskRCNN(MaskRCNN):
                     state_dict = self.__preprocess_coco_weights(state_dict)
                     self.load_state_dict(state_dict, strict=False)
                 else:
-                    self.load_state_dict(state_dict["model_state"])
+                    self.load_state_dict(state_dict["model_state"], strict=False)
 
             else:
                 # If we don't have a valid weights path we are going to try

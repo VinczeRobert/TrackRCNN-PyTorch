@@ -2,6 +2,7 @@ from itertools import groupby
 
 import torch
 import numpy as np
+from sklearn.metrics import jaccard_score
 
 
 def as_numpy(tensor):
@@ -151,3 +152,21 @@ def compute_overlaps(boxes1, boxes2):
         box2 = boxes2[i]
         overlaps[:, i] = compute_iou(box2, boxes1, area2[i], area1)
     return overlaps
+
+
+def compute_overlaps_masks(masks1, masks2):
+    """
+    Use sklearn's jaccard_score which is the same as IoU
+    Taken from: https://github.com/michhar/pytorch-mask-rcnn-samples/blob/master/utils.py#L366
+    """
+    # flatten masks
+    scores = np.zeros((masks1.shape[0], masks2.shape[0]))
+    for idx1, mask1 in enumerate(masks1):
+        for idx2, mask2 in enumerate(masks2):
+            mask1_flattened = mask1.flatten()
+            mask2_flattened = mask2.flatten()
+
+            score = jaccard_score(mask1_flattened, mask2_flattened)
+            scores[idx1][idx2] = score
+
+    return scores

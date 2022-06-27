@@ -15,16 +15,10 @@ class TrackRCNN(CustomMaskRCNN):
     def __init__(self,
                  num_classes,
                  backbone,
-                 pretrained_backbone=False,
-                 pytorch_pretrained_model=False,
-                 maskrcnn_params=None,
-                 fixed_size=None,
-                 **kwargs):
+                 config):
         super(TrackRCNN, self).__init__(num_classes,
                                         backbone,
-                                        pytorch_pretrained_model,
-                                        maskrcnn_params,
-                                        **kwargs)
+                                        config)
 
         backbone_output_dim = backbone.out_channels
 
@@ -51,12 +45,12 @@ class TrackRCNN(CustomMaskRCNN):
         # and the number of outputs was set by the authors to 128
         self.association_head = nn.Linear(in_features=4, out_features=128, bias=False)
 
-        # Override the RoI heads to have access to custom forward method
-        self.roi_heads = RoIHeadsCustom(backbone.out_channels,
-                                        num_classes,
-                                        self.roi_heads.mask_roi_pool,
-                                        self.roi_heads.mask_head,
-                                        self.roi_heads.mask_predictor)
+        # # Override the RoI heads to have access to custom forward method
+        # self.roi_heads = RoIHeadsCustom(backbone.out_channels,
+        #                                 num_classes,
+        #                                 self.roi_heads.mask_roi_pool,
+        #                                 self.roi_heads.mask_head,
+        #                                 self.roi_heads.mask_predictor)
 
     def forward(self, images, targets=None):
         if self.training and targets is None:
@@ -95,7 +89,7 @@ class TrackRCNN(CustomMaskRCNN):
         for idx, reg_prop_for_time_frame in enumerate(proposals):
             overlaps = compute_overlaps(reg_prop_for_time_frame.cpu(), targets[idx]["boxes"].cpu())
             proposal_ids = np.argmax(overlaps, axis=1)
-            track_ids = torch.stack([targets[idx]["object_ids"][id] for id in proposal_ids], axis=0)
+            track_ids = torch.stack([targets[idx]["obj_ids"][id] for id in proposal_ids], axis=0)
             proposal_track_ids.append(track_ids)
 
         # get the association vectors and compute the loss

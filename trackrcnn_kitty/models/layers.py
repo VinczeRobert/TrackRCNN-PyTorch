@@ -22,15 +22,17 @@ class SepConvTemp3D(nn.Module):
         padding = depth_wise_parameters["padding"]
 
         # We create input_dim number of layers for depth convolution
-        self.conv3d_temp_depth_wise = [nn.Conv3d(in_channels=in_channels, kernel_size=kernel_size,
-                                                 out_channels=out_channels, padding=padding,
-                                                 device=get_device(), bias=False)] * input_dim
+        depth_wise_layers = []
+        for i in range(input_dim):
+            layer_i = nn.Conv3d(in_channels=in_channels, kernel_size=kernel_size, out_channels=out_channels,
+                                padding=padding, device=get_device(), bias=False)
+            depth_wise_layers.append(layer_i)
+        self.conv3d_temp_depth_wise = nn.ModuleList(depth_wise_layers)
         self.__weights_initialization_depth_wise(kernel_size)
 
         in_channels = point_wise_parameters["in_channels"]
         kernel_size = point_wise_parameters["kernel_size"]
         out_channels = point_wise_parameters["out_channels"]
-        padding = None
 
         # We create a single layer for point convolution
         self.conv3d_temp_point_wise = nn.Conv3d(in_channels=in_channels, kernel_size=kernel_size,

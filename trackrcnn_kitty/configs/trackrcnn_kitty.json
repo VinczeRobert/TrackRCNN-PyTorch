@@ -1,33 +1,37 @@
 {
   "dataset": "KITTISegTrack",
   "dataset_path": "D:\\Robert\\KITTITrackSegDataset",
-  "train_image_size": [1024, 309],
-  "test_image_size": [1242, 375],
-  "fixed_image_size": false,
-  "transforms_list": ["flip"],
-
-  "train_batch_size": 6,
+  "train_image_size": [
+    1024,
+    309
+  ],
+  "test_image_size": [
+    1242,
+    375
+  ],
+  "fixed_image_size": true,
+  "transforms_list": [
+    "flip"
+  ],
+  "train_batch_size": 8,
   "test_batch_size": 4,
-  "learning_rate": 0.0005,
-  "num_epochs": 20,
-
+  "learning_rate": 0.000005,
+  "num_epochs": 3,
   "add_associations": false,
-
   "pytorch_pretrained_model": false,
-  "weights_path": "weights/best_weights_so_far_50.pth",
+  "weights_path": "night2.pth",
   "preprocess_weights": false,
-  "epochs_to_validate": 5,
-
+  "epochs_to_validate": 3,
   "use_resnet101": false,
-  "trainable_backbone_layers": 4,
+  "trainable_backbone_layers": 3,
   "freeze_batchnorm": true,
   "add_last_layer": true,
   "fpn_out_channels": 256,
   "pretrained_backbone": false,
-
-  "task": "save_preds",
-
+  "task": "adnotate",
   "maskrcnn_params": {
-
+    "anchor_sizes": [8, 16, 32, 64, 128],
+    "aspect_ratios": [0.5, 1.0, 2.0],
+    "rpn_batch_size_per_image": 32
   }
 }

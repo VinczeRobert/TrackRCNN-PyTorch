@@ -5,51 +5,22 @@ and link the ground truths in time, without any training happening.
 import munkres
 import numpy as np
 import torch
-from sklearn.metrics import jaccard_score
 
 import trackrcnn_kitty.datasets.transforms as T
 from references.pytorch_detection.utils import collate_fn
 from trackrcnn_kitty.adnotate import adnotate
 from trackrcnn_kitty.datasets.kitti_seg_track_dataset import KITTISegTrackDataset
+from trackrcnn_kitty.utils import compute_overlaps_masks
+
 
 MATCHING_THRESHOLD_CAR = 0.25
 MATCHING_THRESHOLD_PEDESTRIAN = 0.15
 
 
-def compute_overlaps_masks(masks1, masks2):
-    """
-    Use sklearn's jaccard_score which is the same as IoU
-    Taken from: https://github.com/michhar/pytorch-mask-rcnn-samples/blob/master/utils.py#L366
-    """
-    # flatten masks
-    scores = np.zeros((masks1.shape[0], masks2.shape[0]))
-    for idx1, mask1 in enumerate(masks1):
-        for idx2, mask2 in enumerate(masks2):
-            mask1_flattened = mask1.flatten()
-            mask2_flattened = mask2.flatten()
-
-            score = jaccard_score(mask1_flattened, mask2_flattened)
-            scores[idx1][idx2] = score
-
-    return scores
-
-
-def get_transforms(transforms_list, train):
-    transforms = [T.ToTensor()]
-
-    if train:
-        if "flip" in transforms_list:
-            transforms.append(T.RandomHorizontalFlip(0.5))
-        if "gamma" in transforms:
-            transforms.append(T.GammaCorrection((-0.05, 0.05)))
-
-    return T.Compose(transforms)
-
-
 def main():
     root_path = "/Users/robert.vincze/Downloads/KITTITrackSegValDataset/"
-    transforms = get_transforms([], False)
-    reduced_dataset = KITTISegTrackDataset(root_path, transforms, False, "0006")
+    transforms = T.ToTensor()
+    reduced_dataset = KITTISegTrackDataset(root_path, transforms, False, "0002")
     batch_size = 8
     data_loader = torch.utils.data.DataLoader(
         reduced_dataset,
