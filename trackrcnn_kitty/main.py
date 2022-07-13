@@ -19,6 +19,10 @@ if __name__ == '__main__':
         train_engine.training_and_evaluating()
     elif config.task == "save_preds":
         train_engine.evaluate_and_save_results(os.path.join("predictions", os.path.basename(config.dataset_path)))
+    elif config.task == "annotate":
+        train_engine.annotate_results_with_tracking()
+    elif config.task == "metrics":
+        train_engine.calculate_metrics()
     else:
         print("Invalid task in configuration file! Stopping program.")
         sys.exit(-1)

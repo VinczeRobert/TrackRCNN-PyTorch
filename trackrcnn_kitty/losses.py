@@ -49,7 +49,7 @@ def compute_association_loss_for_detection(curr_det_id, dst_matrix, dets_axis_0,
         margin=0.2
     )
 
-    return triplet_loss * 0.001
+    return triplet_loss
 
 
 def compute_association_loss(associations, detection_ids):
@@ -70,6 +70,6 @@ def compute_association_loss(associations, detection_ids):
                                                              all_detection_ids.cpu())
         loss += loss_per_id
 
-    loss = (loss / len(unique_detection_ids))
+    loss = (loss / len(unique_detection_ids)) * 0.01
 
     return torch.tensor(loss)

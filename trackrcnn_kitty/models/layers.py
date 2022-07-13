@@ -44,7 +44,7 @@ class SepConvTemp3D(nn.Module):
         # we use an identity filter
         filter_size = list(filter_size)
         filter_initializer = np.zeros([1, 1] + filter_size, dtype=np.float32)
-        filter_initializer[0, 0, :, int(filter_size[1] / 2.0), int(filter_size[2] / 2.0)] = 1.0 / filter_size[0]
+        filter_initializer[0, 0, int(filter_size[0] / 2.0), int(filter_size[1] / 2.0), int(filter_size[2] / 2.0)] = 1.0
 
         # iterate through each layer and manually set weights
         with torch.no_grad():

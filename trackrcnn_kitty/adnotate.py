@@ -3,7 +3,7 @@ import os.path
 import cv2 as cv
 import numpy as np
 
-SAVE_TRACKING_RESULTS_PATH = "/Users/robert.vincze/Dissertation/kitti_tracking_results/"
+SAVE_TRACKING_RESULTS_PATH = "D:\\Robert\\EXPERIMENTAL_RESULTS"
 
 
 def adnotate(image_path, masks, obj_ids, colors):

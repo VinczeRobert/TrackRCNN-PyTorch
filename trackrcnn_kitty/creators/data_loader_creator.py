@@ -44,7 +44,7 @@ def get_data_loaders(config):
             4
         )
         num_classes = training_dataset.num_classes
-    elif config.task in ["val", "save_preds"]:
+    elif config.task in ["val", "save_preds", "annotate", "metrics"]:
         transforms = __get_transforms(config.transforms_list, False)
         testing_dataset = get_dataset(config, transforms, False)
         data_loaders["test"] = __get_data_loader(
