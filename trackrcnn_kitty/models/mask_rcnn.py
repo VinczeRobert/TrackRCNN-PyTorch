@@ -303,7 +303,7 @@ class CustomMaskRCNN(MaskRCNN):
                 # Unfortunately on PyTorch pretrained weights are available only for ResNet50
                 if use_resnet101 is False:
                     state_dict = load_state_dict_from_url(model_urls["maskrcnn_resnet50_fpn_coco"])
-                    self.load_state_dict(state_dict)
+                    self.load_state_dict(state_dict, strict=False)
                     overwrite_eps(self, 0.0)
 
         except RuntimeError as e:

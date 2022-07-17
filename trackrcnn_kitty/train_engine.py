@@ -47,11 +47,11 @@ class TrainEngine:
                                         backbone=backbone,
                                         config=self.config)
 
-            # If the backbone was no pretrained weights, we are going to try to use
-            # pretrained weights for the whole model
-            if self.config.pretrained_backbone is False:
-                self.model.load_weights(self.config.weights_path, self.config.preprocess_weights,
-                                        self.config.use_resnet101)
+        # If the backbone was no pretrained weights, we are going to try to use
+        # pretrained weights for the whole model
+        if self.config.pretrained_backbone is False:
+            self.model.load_weights(self.config.weights_path, self.config.preprocess_weights,
+                                    self.config.use_resnet101)
 
         if self.config.pytorch_pretrained_model:
             self.model.finetune(num_classes)
@@ -73,7 +73,7 @@ class TrainEngine:
             "optim_state": optimizer.state_dict()
         }
 
-        torch.save(checkpoint, "june22almost.pth")
+        torch.save(checkpoint, "june22almostB.pth")
 
         print("Training complete.")
 
@@ -235,12 +235,12 @@ class TrainEngine:
                 if len(outputs[idx]) == 0:
                     continue
 
-                if len(outputs[idx-1]) == 0:
-                    association_dict, obj_id_count= adnotate_first_image(outputs[idx], association_dict, 0)
+                if len(outputs[idx - 1]) == 0:
+                    association_dict, obj_id_count = adnotate_first_image(outputs[idx], association_dict, 0)
                     continue
 
                 # Continue tracks for current image
-                association_dict, obj_id_count = find_tracks_for_one_image(outputs[idx], outputs[idx-1],
+                association_dict, obj_id_count = find_tracks_for_one_image(outputs[idx], outputs[idx - 1],
                                                                            association_dict,
                                                                            obj_id_count)
             else:

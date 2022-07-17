@@ -1,15 +1,11 @@
 from collections import OrderedDict
 
-import numpy as np
-import torch
 from torch import nn, Tensor
 
-from trackrcnn_kitty.losses import compute_association_loss
-from trackrcnn_kitty.models.association_head import AssociationHead
 from trackrcnn_kitty.models.layers import SepConvTemp3D
 from trackrcnn_kitty.models.mask_rcnn import CustomMaskRCNN
 from trackrcnn_kitty.models.roi_heads import RoIHeadsCustom
-from trackrcnn_kitty.utils import check_for_degenerate_boxes, compute_overlaps
+from trackrcnn_kitty.utils import check_for_degenerate_boxes
 
 
 class TrackRCNN(CustomMaskRCNN):
@@ -40,6 +36,9 @@ class TrackRCNN(CustomMaskRCNN):
         self.conv3d_temp_2 = SepConvTemp3D(conv3d_parameters_1, conv3d_parameters_2, backbone_output_dim)
 
         self.relu = nn.ReLU()
+
+        if config.pytorch_pretrained_model:
+            num_classes = 91
 
         # # Override the RoI heads to have access to custom forward method
         self.roi_heads = RoIHeadsCustom(backbone.out_channels,

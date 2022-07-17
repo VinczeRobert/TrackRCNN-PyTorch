@@ -1,12 +1,10 @@
-from typing import List, Dict
 import numpy as np
 import torch
 from torchvision.models.detection.faster_rcnn import TwoMLPHead, FastRCNNPredictor
-from torchvision.models.detection.roi_heads import RoIHeads, fastrcnn_loss, maskrcnn_loss, keypointrcnn_loss, \
-    keypointrcnn_inference, maskrcnn_inference
+from torchvision.models.detection.roi_heads import RoIHeads
 from torchvision.ops import MultiScaleRoIAlign
 
-from trackrcnn_kitty.losses import compute_association_loss
+from trackrcnn_kitty.losses import AssociationLoss
 from trackrcnn_kitty.models.association_head import AssociationHead
 from trackrcnn_kitty.utils import compute_overlaps
 
@@ -81,6 +79,7 @@ class RoIHeadsCustom(RoIHeads):
         resolution = box_roi_pool.output_size[0]
         representation_size = 128
         self.association_head = AssociationHead(out_channels * resolution ** 2, representation_size)
+        self.association_loss = AssociationLoss()
 
     def forward(self, features,
                 proposals,
@@ -102,6 +101,7 @@ class RoIHeadsCustom(RoIHeads):
             proposal_track_ids.append(track_ids)
 
         # Compute the association loss
-        assocation_loss = compute_association_loss(association_features.cpu(), proposal_track_ids)
-        detector_losses.update({"association_loss": assocation_loss})
+        association_loss = self.association_loss(association_features.cpu(), proposal_track_ids)
+        association_loss.requires_grad = True
+        detector_losses.update({"loss_association": association_loss})
         return detections, detector_losses
