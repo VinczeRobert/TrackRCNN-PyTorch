@@ -13,13 +13,13 @@
   "transforms_list": [
     "flip"
   ],
-  "train_batch_size": 8,
+  "train_batch_size": 6,
   "test_batch_size": 4,
-  "learning_rate": 0.00005,
-  "num_epochs": 10,
+  "learning_rate": 0.0005,
+  "num_epochs": 9,
   "add_associations": true,
-  "pytorch_pretrained_model": true,
-  "weights_path": "no_matter",
+  "pytorch_pretrained_model": false,
+  "weights_path": "loss_hopefully_correct.pth",
   "preprocess_weights": false,
   "epochs_to_validate": 5,
   "use_resnet101": false,
@@ -28,7 +28,8 @@
   "add_last_layer": true,
   "fpn_out_channels": 256,
   "pretrained_backbone": false,
-  "task": "train",
+  "task": "annotate",
   "maskrcnn_params": {
+
   }
 }

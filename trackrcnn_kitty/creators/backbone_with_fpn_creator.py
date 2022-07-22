@@ -4,8 +4,6 @@ from torchvision.models.detection.backbone_utils import BackboneWithFPN
 from torchvision.ops import misc as misc_nn_ops
 from torchvision.ops.feature_pyramid_network import LastLevelMaxPool
 
-from trackrcnn_kitty.models.layers import Identity
-
 
 class BackboneWithFPNCreator:
 

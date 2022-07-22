@@ -1,8 +1,7 @@
 import torch
-import numpy as np
 from torch import nn
 
-from trackrcnn_kitty.utils import as_numpy
+from trackrcnn_kitty.utils import get_device
 
 
 def compute_association_loss_for_detection(curr_det_id, dst_matrix, dets_axis_0, dets_axis_1):
@@ -44,7 +43,7 @@ def compute_association_loss_for_detection(curr_det_id, dst_matrix, dets_axis_0,
 
     # Compute batch triplet loss
     if len(same_dst_matrix) > 0 and len(different_dst_matrix) > 0:
-        margin = 0.2
+        margin = torch.tensor(0.1)
         # Compute hard positives and hard negatives
         hard_pos = torch.max(same_dst_matrix, dim=0).values
         hard_neg = torch.min(different_dst_matrix, dim=0).values
@@ -52,9 +51,9 @@ def compute_association_loss_for_detection(curr_det_id, dst_matrix, dets_axis_0,
         triplet_loss = torch.maximum(margin + hard_pos - hard_neg, torch.tensor(0))
 
         # return total loss for current pytorch_detection and normalization
-        return np.asscalar(as_numpy(torch.sum(triplet_loss))), len(triplet_loss)
+        return torch.sum(triplet_loss) / triplet_loss.shape[0]
     else:
-        return 0, 1
+        return torch.tensor(0.0, device=get_device(), requires_grad=True)
 
 
 class AssociationLoss(nn.Module):
@@ -63,25 +62,20 @@ class AssociationLoss(nn.Module):
         super(AssociationLoss, self).__init__()
 
     def forward(self, associations, detection_ids):
-        # Create a tensor of dim (D), D being the number of detections
-        all_detection_ids = torch.cat(detection_ids, dim=0).cpu()
-
         # associations is a tensor of dim (D, 128), D being the number of detections
         # compute euclidean distance between every pair of detections from this batch
         detection_distances = torch.cdist(associations, associations)
 
-        unique_detection_ids = torch.unique(all_detection_ids)
+        unique_detection_ids = torch.unique(detection_ids)
 
-        loss = 0
-        normalization = 0
+        losses = []
         for detection_id in unique_detection_ids:
-            loss_per_id, normalization_per_id = compute_association_loss_for_detection(detection_id,
-                                                                                       detection_distances.cpu(),
-                                                                                       all_detection_ids.cpu(),
-                                                                                       all_detection_ids.cpu())
-            loss += loss_per_id
-            normalization += normalization_per_id
+            loss_per_id = compute_association_loss_for_detection(detection_id,
+                                                                 detection_distances,
+                                                                 detection_ids,
+                                                                 detection_ids)
+            losses.append(loss_per_id)
 
-        loss = (loss / normalization)
+        loss = torch.stack(losses, dim=0).sum(dim=0)
 
-        return torch.tensor(loss)
+        return loss / len(losses)

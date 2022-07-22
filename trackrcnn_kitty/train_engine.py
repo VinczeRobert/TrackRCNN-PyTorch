@@ -63,9 +63,14 @@ class TrainEngine:
         # optimizer = torch.optim.Adam(params, lr=self.config.learning_rate)
         optimizer = torch.optim.SGD(params, lr=self.config.learning_rate, momentum=0.9, weight_decay=0.005)
 
+        lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer,
+                                                       step_size=3,
+                                                       gamma=0.1)
+
         for epoch in range(self.config.num_epochs):
             # train for one epoch, printing every 10 iterations
             train_one_epoch(self.model, optimizer, self.data_loaders["train"], self.device, epoch, print_freq=10)
+            lr_scheduler.step()
 
         checkpoint = {
             "epoch": self.config.num_epochs,
@@ -73,7 +78,7 @@ class TrainEngine:
             "optim_state": optimizer.state_dict()
         }
 
-        torch.save(checkpoint, "june22almostB.pth")
+        torch.save(checkpoint, "loss_hopefully_correct.pth")
 
         print("Training complete.")
 

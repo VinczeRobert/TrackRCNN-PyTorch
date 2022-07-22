@@ -18,6 +18,9 @@ class RoIHeadsCustom(RoIHeads):
                  mask_roi_pool=None,
                  mask_head=None,
                  mask_predictor=None,
+                 # Association
+                 association_roi_pool=None,
+                 association_head=None,
                  keypoint_roi_pool=None,
                  keypoint_head=None,
                  keypoint_predictor=None,
@@ -69,16 +72,9 @@ class RoIHeadsCustom(RoIHeads):
         self.mask_head = mask_head
         self.mask_predictor = mask_predictor
 
-        self.association_roi_pool = MultiScaleRoIAlign(
-            featmap_names=['0', '1', '2', '3'],
-            output_size=7,
-            sampling_ratio=2)
-        # Finally we create the new association head, which is basically a fully connected layer
-        # the number of inputs is equal to the number of detections
-        # and the number of outputs was set by the authors to 128
-        resolution = box_roi_pool.output_size[0]
-        representation_size = 128
-        self.association_head = AssociationHead(out_channels * resolution ** 2, representation_size)
+        self.association_roi_pool = association_roi_pool
+        self.association_head = association_head
+
         self.association_loss = AssociationLoss()
 
     def forward(self, features,
@@ -88,20 +84,36 @@ class RoIHeadsCustom(RoIHeads):
                 ):
         detections, detector_losses = super(RoIHeadsCustom, self).forward(features, proposals, image_shapes, targets)
 
-        association_features = self.association_roi_pool(features, proposals, image_shapes)
+        if self.training:
+            proposals, _, _, _ = self.select_training_samples(proposals, targets)
+            association_features = self.association_roi_pool(features, proposals, image_shapes)
+        else:
+            detected_boxes = []
+            for detection in detections:
+                detected_boxes.append(detection["boxes"])
+            association_features = self.association_roi_pool(features, detected_boxes, image_shapes)
+
         association_features = self.association_head(association_features)
 
-        # This for loop gets the predicted tracking ids for the region proposals
-        # by checking their overlap with the ground-truth objects
-        proposal_track_ids = []
-        for idx, reg_prop_for_time_frame in enumerate(proposals):
-            overlaps = compute_overlaps(reg_prop_for_time_frame.cpu(), targets[idx]["boxes"].cpu())
-            proposal_ids = np.argmax(overlaps, axis=1)
-            track_ids = torch.stack([targets[idx]["obj_ids"][id] for id in proposal_ids], axis=0)
-            proposal_track_ids.append(track_ids)
+        if self.training:
+            # This for loop gets the predicted tracking ids for the region proposals
+            # by checking their overlap with the ground-truth objects
+            proposal_track_ids = []
+            for idx, reg_prop_for_time_frame in enumerate(proposals):
+                overlaps = compute_overlaps(reg_prop_for_time_frame.cpu(), targets[idx]["boxes"].cpu())
+                proposal_ids = np.argmax(overlaps, axis=1)
+                track_ids = torch.stack([targets[idx]["obj_ids"][id] for id in proposal_ids], axis=0)
+                proposal_track_ids.append(track_ids)
 
-        # Compute the association loss
-        association_loss = self.association_loss(association_features.cpu(), proposal_track_ids)
-        association_loss.requires_grad = True
-        detector_losses.update({"loss_association": association_loss})
+            # Compute the association loss
+            # Create a tensor of dim (D), D being the number of detections
+            all_detection_ids = torch.cat(proposal_track_ids, dim=0)
+            association_loss = self.association_loss(association_features, all_detection_ids)
+            detector_losses.update({"loss_association": association_loss})
+        else:
+            count = 0
+            for idx in range(len(detections)):
+                detections[idx]["association_vector"] = association_features[count: count + len(detections[idx]["boxes"])]
+                count = count + len(detections[idx]["boxes"])
+
         return detections, detector_losses

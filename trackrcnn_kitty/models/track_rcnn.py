@@ -1,7 +1,9 @@
 from collections import OrderedDict
 
 from torch import nn, Tensor
+from torchvision.ops import MultiScaleRoIAlign
 
+from trackrcnn_kitty.models.association_head import AssociationHead
 from trackrcnn_kitty.models.layers import SepConvTemp3D
 from trackrcnn_kitty.models.mask_rcnn import CustomMaskRCNN
 from trackrcnn_kitty.models.roi_heads import RoIHeadsCustom
@@ -40,12 +42,25 @@ class TrackRCNN(CustomMaskRCNN):
         if config.pytorch_pretrained_model:
             num_classes = 91
 
+        association_roi_pool = MultiScaleRoIAlign(
+            featmap_names=['0', '1', '2', '3'],
+            output_size=7,
+            sampling_ratio=2)
+        # Finally we create the new association head, which is basically a fully connected layer
+        # the number of inputs is equal to the number of detections
+        # and the number of outputs was set by the authors to 128
+        resolution = self.roi_heads.box_roi_pool.output_size[0]
+        representation_size = 128
+        association_head = AssociationHead(backbone.out_channels * resolution ** 2, representation_size)
+
         # # Override the RoI heads to have access to custom forward method
         self.roi_heads = RoIHeadsCustom(backbone.out_channels,
                                         num_classes,
                                         self.roi_heads.mask_roi_pool,
                                         self.roi_heads.mask_head,
-                                        self.roi_heads.mask_predictor)
+                                        self.roi_heads.mask_predictor,
+                                        association_roi_pool,
+                                        association_head)
 
     def forward(self, images, targets=None):
         if self.training and targets is None:
