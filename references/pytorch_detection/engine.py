@@ -4,10 +4,13 @@ import time
 
 import torch
 import torchvision.models.detection.mask_rcnn
+from torchvision.models.detection.transform import GeneralizedRCNNTransform
 
 from references.pytorch_detection import utils
 from references.pytorch_detection.coco_eval import CocoEvaluator
 from references.pytorch_detection.coco_utils import get_coco_api_from_dataset
+
+torch.cuda.empty_cache()
 
 
 def train_one_epoch(model, optimizer, data_loader, device, epoch, print_freq):
@@ -15,11 +18,21 @@ def train_one_epoch(model, optimizer, data_loader, device, epoch, print_freq):
     metric_logger = utils.MetricLogger(delimiter="  ")
     metric_logger.add_meter('lr', utils.SmoothedValue(window_size=1, fmt='{value:.6f}'))
     header = 'Epoch: [{}]'.format(epoch)
+    transform = GeneralizedRCNNTransform(800, 1333, [0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
 
     for images, targets in metric_logger.log_every(data_loader, print_freq, header):
+        # valid_idx = [idx for idx in range(len(targets)) if len(targets[idx]["boxes"]) > 0]
+        # images = [images[idx] for idx in valid_idx]
+        # targets = [targets[idx] for idx in valid_idx]
+        # images, targets = transform(images, targets)
+        # image_sizes = images.image_sizes
+        # images = torch.split(images.tensors, 1, dim=0)
+        # images = [image.reshape((image.shape[1], image.shape[2], image.shape[3])) for image in images]
+
         images = list(image.to(device) for image in images)
         targets = [{k: v.to(device) for k, v in t.items() if isinstance(v, torch.Tensor)} for t in targets]
 
+        # loss_dict = model(images, targets, image_sizes)
         loss_dict = model(images, targets)
 
         losses = sum(loss for loss in loss_dict.values())
@@ -38,6 +51,7 @@ def train_one_epoch(model, optimizer, data_loader, device, epoch, print_freq):
         optimizer.zero_grad()
         losses.backward()
         optimizer.step()
+        torch.cuda.empty_cache()
 
         metric_logger.update(loss=losses_reduced, **loss_dict_reduced)
         metric_logger.update(lr=optimizer.param_groups[0]["lr"])

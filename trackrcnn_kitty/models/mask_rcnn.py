@@ -8,6 +8,7 @@ from torchvision.models.detection import MaskRCNN
 from torchvision.models.detection._utils import overwrite_eps
 from torchvision.models.detection.anchor_utils import AnchorGenerator
 from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
+from torchvision.models.detection.image_list import ImageList
 from torchvision.models.detection.mask_rcnn import MaskRCNNPredictor
 from torchvision.models.detection.transform import GeneralizedRCNNTransform
 from trackrcnn_kitty.utils import check_for_degenerate_boxes
@@ -65,10 +66,14 @@ class CustomMaskRCNN(MaskRCNN):
             original_image_sizes.append((val[0], val[1]))
 
         images, targets = self.transform(images, targets)
+        # images = ImageList(torch.stack(images, dim=0), image_sizes)
         check_for_degenerate_boxes(targets)
 
         # Run the images through the backbone (resnet101) and fpn
+
+        # images = torch.stack(images, dim=0)
         feature_dict = self.backbone(images.tensors)
+        # images = ImageList(images, image_sizes)
 
         if isinstance(feature_dict, Tensor):
             feature_dict = OrderedDict([("0", feature_dict)])
@@ -295,6 +300,12 @@ class CustomMaskRCNN(MaskRCNN):
                     state_dict = self.__preprocess_coco_weights(state_dict)
                     self.load_state_dict(state_dict, strict=False)
                 else:
+                    # state_dict["model_state"].pop("roi_heads.box_predictor.cls_score.weight")
+                    # state_dict["model_state"].pop("roi_heads.box_predictor.cls_score.bias")
+                    # state_dict["model_state"].pop("roi_heads.box_predictor.bbox_pred.weight")
+                    # state_dict["model_state"].pop("roi_heads.box_predictor.bbox_pred.bias")
+                    # state_dict["model_state"].pop("roi_heads.mask_predictor.mask_fcn_logits.weight")
+                    # state_dict["model_state"].pop("roi_heads.mask_predictor.mask_fcn_logits.bias")
                     self.load_state_dict(state_dict["model_state"], strict=False)
 
             else:

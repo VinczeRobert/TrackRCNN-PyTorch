@@ -64,7 +64,7 @@ class TrainEngine:
         optimizer = torch.optim.SGD(params, lr=self.config.learning_rate, momentum=0.9, weight_decay=0.005)
 
         lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer,
-                                                       step_size=3,
+                                                       step_size=4,
                                                        gamma=0.1)
 
         for epoch in range(self.config.num_epochs):
@@ -72,13 +72,17 @@ class TrainEngine:
             train_one_epoch(self.model, optimizer, self.data_loaders["train"], self.device, epoch, print_freq=10)
             lr_scheduler.step()
 
-        checkpoint = {
-            "epoch": self.config.num_epochs,
-            "model_state": self.model.state_dict(),
-            "optim_state": optimizer.state_dict()
-        }
+            checkpoint = {
+                "epoch": self.config.num_epochs,
+                "model_state": self.model.state_dict(),
+                "optim_state": optimizer.state_dict()
+            }
 
-        torch.save(checkpoint, "loss_hopefully_correct.pth")
+            try:
+                torch.save(checkpoint, f"trackrcnn_on_mapillary{epoch}.pth")
+            except OSError:
+                print("Error at saving!")
+                continue
 
         print("Training complete.")
 
@@ -151,12 +155,15 @@ class TrainEngine:
 
     def __filter_masks(self, output):
         masks_to_draw = []
+        association_vectors_to_use = []
 
         # Keep only masks that have a chance of being selected
         scores = output["scores"]
         scores = scores[scores >= CAR_CONFIDENCE_THRESH]
         masks = output["masks"]
         masks = masks[:len(scores)]
+        association_vectors = output["association_vectors"]
+        association_vectors = association_vectors[:len(association_vectors)]
 
         # Because pedestrians have a higher threshold, they need an extra check
         labels = output["labels"]
@@ -165,26 +172,30 @@ class TrainEngine:
         for i, label in enumerate(labels):
             if label == 1 or scores[i] >= PEDESTRIAN_CONFIDENCE_THRESH:
                 masks_to_draw.append(masks[i])
+                association_vectors_to_use.append(association_vectors[i])
 
         if len(masks_to_draw) == 0:
-            return masks_to_draw, labels
+            return masks_to_draw, association_vectors_to_use, labels
 
         masks_to_draw = [mask.detach().cpu().reshape((mask.shape[1], mask.shape[2])) for mask in masks_to_draw]
         masks_to_draw = torch.stack(masks_to_draw, dim=0)
         masks_to_draw = masks_to_draw > 0.5
 
-        return masks_to_draw, labels
+        association_vectors_to_use = torch.stack(association_vectors_to_use, dim=0)
+
+        return masks_to_draw, association_vectors_to_use, labels
 
     def __edit_output_for_tracking(self, output, image_path):
         # artificially add the image_path to outputs to simplify logic
         output["image_path"] = image_path
         # Keep only the masks that have a chance of being selected from the current frame
-        masks_jm, labels = self.__filter_masks(output)
+        masks_jm, av_jm, labels = self.__filter_masks(output)
 
         if len(masks_jm) == 0:
             return {}
 
         output["masks"] = masks_jm
+        output["association_vectors"] = av_jm
         output["labels"] = labels
 
         return output

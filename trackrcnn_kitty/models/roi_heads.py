@@ -113,7 +113,7 @@ class RoIHeadsCustom(RoIHeads):
         else:
             count = 0
             for idx in range(len(detections)):
-                detections[idx]["association_vector"] = association_features[count: count + len(detections[idx]["boxes"])]
+                detections[idx]["association_vectors"] = association_features[count: count + len(detections[idx]["boxes"])]
                 count = count + len(detections[idx]["boxes"])
 
         return detections, detector_losses

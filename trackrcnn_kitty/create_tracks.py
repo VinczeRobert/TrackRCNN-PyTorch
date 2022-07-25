@@ -5,13 +5,14 @@ and link the ground truths in time, without any training happening.
 import munkres
 import numpy as np
 import torch
+import torch.nn.functional as F
 import cv2 as cv
 
 import trackrcnn_kitty.datasets.transforms as T
 from references.pytorch_detection.utils import collate_fn
 from trackrcnn_kitty.adnotate import adnotate
 from trackrcnn_kitty.datasets.kitti_seg_track_dataset import KITTISegTrackDataset
-from trackrcnn_kitty.utils import compute_overlaps_masks
+
 
 MATCHING_THRESHOLD_CAR = 0.25
 MATCHING_THRESHOLD_PEDESTRIAN = 0.15
@@ -40,46 +41,30 @@ def warp_flow(img, flow):
     return res
 
 
-previous_flow = None
-
-
 def find_tracks_for_one_image(targets_j, targets_jm1, association_dict, obj_id_count):
-    global previous_flow
-    masks_j = targets_j["masks"].detach().cpu().numpy()
-    masks_jm1 = targets_jm1["masks"].detach().cpu().numpy()
+    associations_j = targets_j["association_vectors"]
+    associations_jm1 = targets_jm1["association_vectors"]
     hungarian_algorithm = munkres.Munkres()
 
-    im1 = cv.imread(targets_jm1["image_path"], cv.IMREAD_GRAYSCALE)
-    im2 = cv.imread(targets_j["image_path"], cv.IMREAD_GRAYSCALE)
-    im1 = np.uint8(im1)
-    im2 = np.uint8(im2)
-
-    flow = cv.calcOpticalFlowFarneback(im1, im2, previous_flow, 0.5, 3, 15, 3, 5, 1.2, 0)
-    previous_flow = flow
-
-    of_masks = np.array([warp_flow(np.uint8(mask), flow) for mask in masks_jm1])
-
     # Get the cost matrix which will be used by the Hungarian algorithm
-    mask_overlaps = compute_overlaps_masks(of_masks, masks_j)
-    mask_overlaps = mask_overlaps * (-1)
+    av_distances = torch.cdist(associations_jm1, associations_j)
 
     # Get difference between rows and columns
-    orig_columns_numbers = mask_overlaps.shape[1]
-    row_column_diff = mask_overlaps.shape[0] - mask_overlaps.shape[1]
+    orig_columns_numbers = av_distances.shape[1]
+    row_column_diff = av_distances.shape[0] - av_distances.shape[1]
     extra_columns = []
     if row_column_diff > 0:
         # There are more rows than columns, columns need to be padded
-        mask_overlaps = np.pad(mask_overlaps, [(0, 0), (0, row_column_diff)], mode='constant')
+        av_distances = F.pad(input=av_distances, pad=(0, row_column_diff, 0, 0), mode='constant', value=0)
         extra_columns = [k for k in range(orig_columns_numbers, orig_columns_numbers + row_column_diff)]
     elif row_column_diff < 0:
         # There are more columns than rows, rows need to be added
-        mask_overlaps = np.pad(mask_overlaps, [(0, abs(row_column_diff)), (0, 0)], mode='constant')
+        av_distances = F.pad(input=av_distances, pad=(0, 0, 0, abs(row_column_diff)), mode='constant')
 
     # this method works directly on the inputs
     # it returns a list of tuples of dim 2
-    pairs = hungarian_algorithm.compute(mask_overlaps.copy())
+    pairs = hungarian_algorithm.compute(av_distances.detach().cpu().numpy().copy())
 
-    mask_overlaps = mask_overlaps * (-1)
     non_matching_pairs = []
     # eliminate pairs which have an IoU smaller than MATCHING_THRESHOLD
     for i in range(len(pairs) - 1, -1, -1):
@@ -92,16 +77,15 @@ def find_tracks_for_one_image(targets_j, targets_jm1, association_dict, obj_id_c
         except IndexError:
             class_jm = -1
 
-        # eliminate matches with overlapping less than a threshold or where the classes don't correspond
-        threshold = MATCHING_THRESHOLD_CAR if class_jm == 1 else MATCHING_THRESHOLD_PEDESTRIAN
-        if (mask_overlaps[pairs[i][0]][pairs[i][1]] < threshold) or \
+        # eliminate matches where one element was added artificially
+        if (av_distances[pairs[i][0]][pairs[i][1]] == 0) or \
                 (class_jm != class_jm1 and class_jm != -1 and class_jm1 != -1):
             non_matching_pairs.append(pairs[i])
             del pairs[i]
 
     next_association_dict = dict()
-    obj_ids = [0] * mask_overlaps.shape[1]
-    colors = [0] * mask_overlaps.shape[1]
+    obj_ids = [0] * av_distances.shape[1]
+    colors = [0] * av_distances.shape[1]
 
     # Loop through the non matching pairs and if the column is not one
     # that was artificially added for the Jaccard score, then add it
