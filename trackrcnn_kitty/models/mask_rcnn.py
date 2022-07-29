@@ -55,7 +55,7 @@ class CustomMaskRCNN(MaskRCNN):
         if config.pytorch_pretrained_model is False:
             self.finetune(num_classes)
 
-    def forward(self, images, targets=None):
+    def forward(self, images, targets=None, image_sizes=None):
         if self.training and targets is None:
             raise ValueError("In training mode, targets should be passed")
 

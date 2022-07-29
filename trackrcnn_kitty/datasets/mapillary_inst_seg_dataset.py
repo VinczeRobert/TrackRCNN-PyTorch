@@ -4,20 +4,19 @@ import torch
 import numpy as np
 
 from PIL import Image
-
-from references.pytorch_maskrcnn_coco.model import Dataset
+from torch.utils.data import Dataset
 
 
 class MapillaryInstSegDataset(Dataset):
     def __init__(self, root_path, transforms, train=True):
         self.root_path = root_path
         self.transforms = transforms
-        self.num_classes = 72
+        self.num_classes = 38
         self.train = train
 
         # read the config file
         # We are only interested in v2 and only in the labels
-        with open(os.path.join(self.root_path, "config_v2.0.json")) as config_file:
+        with open(os.path.join(self.root_path, "config_v1.2.json")) as config_file:
             config = json.load(config_file)
         self.labels = config["labels"]
         self.labels_with_instances = [idx for idx, d in enumerate(self.labels) if d["instances"]]
@@ -25,10 +24,10 @@ class MapillaryInstSegDataset(Dataset):
 
         if train:
             images_root_path = os.path.join(self.root_path, "training/images")
-            masks_root_path = os.path.join(self.root_path, "training/v2.0/instances")
+            masks_root_path = os.path.join(self.root_path, "training/v1.2/instances")
         else:
             images_root_path = os.path.join(self.root_path, "validation/images")
-            masks_root_path = os.path.join(self.root_path, "validation/v2.0/instances")
+            masks_root_path = os.path.join(self.root_path, "validation/v1.2/instances")
 
         self.images = list(sorted(os.listdir(images_root_path)))
         self.masks = list(sorted(os.listdir(masks_root_path)))
@@ -41,10 +40,10 @@ class MapillaryInstSegDataset(Dataset):
     def __getitem__(self, idx):
         if self.train:
             image_path = os.path.join(self.root_path, "training/images", self.images[idx])
-            mask_path = os.path.join(self.root_path, "training/v2.0/instances", self.masks[idx])
+            mask_path = os.path.join(self.root_path, "training/v1.2/instances", self.masks[idx])
         else:
             image_path = os.path.join(self.root_path, "validation/images",  self.images[idx])
-            mask_path = os.path.join(self.root_path, "validation/v2.0/instances", self.masks[idx])
+            mask_path = os.path.join(self.root_path, "validation/v1.2/instances", self.masks[idx])
 
         image = Image.open(image_path)
         mask = Image.open(mask_path)
