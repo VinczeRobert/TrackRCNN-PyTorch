@@ -1,6 +1,10 @@
 {
   "dataset": "MapillaryInstSeg",
-  "dataset_path": "D:\\Robert\\Mapillary",
+  "dataset_path": "/Users/robert.vincze/Downloads/Mapillary-32x32-resize_coco_classes",
+  "num_workers": 4,
+
+  "task": "train",
+
   "train_image_size": [
     1024,
     309
@@ -10,27 +14,31 @@
     375
   ],
   "fixed_image_size": false,
+
   "transforms_list": [
     "flip"
   ],
+
   "train_batch_size": 4,
   "test_batch_size": 2,
   "learning_rate": 0.01,
   "num_epochs": 10,
-  "add_associations": false,
-  "pytorch_pretrained_model": true,
-  "weights_path": "dont_matter",
-  "preprocess_weights": false,
   "epochs_to_validate": 5,
+
+  "pytorch_pretrained_model": true,
+  "load_weights": true,
+  "weights_path": "",
+  "pretrain_only_backbone": false,
+
   "use_resnet101": false,
   "trainable_backbone_layers": 3,
   "freeze_batchnorm": true,
   "add_last_layer": true,
   "fpn_out_channels": 256,
-  "pretrained_backbone": false,
-  "task": "train",
-  "maskrcnn_params": {
 
-  }
+  "maskrcnn_params": {
+  },
+
+  "add_associations": false
 }
 

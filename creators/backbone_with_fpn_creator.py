@@ -10,7 +10,7 @@ class BackboneWithFPNCreator:
     def __init__(self,
                  use_resnet101,
                  trainable_backbone_layers,
-                 pretrained_backbone,
+                 pretrain_only_backbone,
                  freeze_batchnorm,
                  fpn_out_channels,
                  add_last_layer):
@@ -23,10 +23,10 @@ class BackboneWithFPNCreator:
             norm_layer = BatchNorm2d
 
         if use_resnet101:
-            backbone = torchvision.models.resnet101(pretrained=pretrained_backbone,
+            backbone = torchvision.models.resnet101(pretrained=pretrain_only_backbone,
                                                     norm_layer=norm_layer)
         else:
-            backbone = torchvision.models.resnet50(pretrained=pretrained_backbone,
+            backbone = torchvision.models.resnet50(pretrained=pretrain_only_backbone,
                                                    norm_layer=norm_layer)
         returned_layers = [1, 2, 3, 4]
         if add_last_layer is False:

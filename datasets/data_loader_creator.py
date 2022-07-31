@@ -3,8 +3,8 @@ import sys
 import torch
 
 from references.pytorch_detection.utils import collate_fn
-from trackrcnn_kitty.datasets.dataset_factory import get_dataset
-import trackrcnn_kitty.datasets.transforms as T
+from datasets.dataset_factory import get_dataset
+import datasets.transforms as T
 
 
 def __get_data_loader(dataset, batch_size, shuffle, num_workers):
@@ -42,7 +42,7 @@ def get_data_loaders(config):
             training_dataset,
             config.train_batch_size,
             not config.add_associations,
-            4
+            config.num_workers
         )
         num_classes = training_dataset.num_classes
     elif config.task in ["val", "save_preds", "annotate", "metrics"]:
@@ -51,8 +51,8 @@ def get_data_loaders(config):
         data_loaders["test"] = __get_data_loader(
             testing_dataset,
             config.test_batch_size,
-            False,
-            1
+            not config.add_associations,
+            config.num_workers
         )
         num_classes = testing_dataset.num_classes
     elif config.task == "train+val":
@@ -64,13 +64,13 @@ def get_data_loaders(config):
             training_dataset,
             config.train_batch_size,
             not config.add_associations,
-            4
+            config.num_workers
         )
         data_loaders["test"] = __get_data_loader(
             testing_dataset,
             config.test_batch_size,
             False,
-            1
+            config.num_workers
         )
         num_classes = training_dataset.num_classes
     else:

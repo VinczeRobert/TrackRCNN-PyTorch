@@ -1,6 +1,11 @@
 {
   "dataset": "KITTISegTrack",
-  "dataset_path": "D:\\Robert\\KITTITrackSegDataset",
+  "dataset_path": "/Users/robert.vincze/Downloads/KITTITrackSegValDataset",
+  "num_workers": 4,
+  "sequence_number": null,
+
+  "task": "val",
+
   "train_image_size": [
     1024,
     309
@@ -9,27 +14,32 @@
     1242,
     375
   ],
-  "fixed_image_size": true,
+  "fixed_image_size": false,
+
   "transforms_list": [
     "flip"
   ],
+
   "train_batch_size": 8,
   "test_batch_size": 4,
   "learning_rate": 0.0005,
   "num_epochs": 5,
-  "add_associations": true,
-  "pytorch_pretrained_model": false,
-  "weights_path": "loss_hopefully_correct.pth",
-  "preprocess_weights": false,
   "epochs_to_validate": 5,
+
+  "pytorch_pretrained_model": true,
+  "load_weights": true,
+  "weights_path": "weights/trackrcnn_on_mapillary.pth",
+  "pretrain_only_backbone": false,
+  "training_from_mapillary": true,
+
   "use_resnet101": false,
   "trainable_backbone_layers": 3,
   "freeze_batchnorm": true,
   "add_last_layer": true,
   "fpn_out_channels": 256,
-  "pretrained_backbone": false,
-  "task": "val",
-  "maskrcnn_params": {
 
-  }
+  "maskrcnn_params": {
+  },
+
+  "add_associations": true
 }

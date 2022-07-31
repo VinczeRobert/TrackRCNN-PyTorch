@@ -2,8 +2,8 @@ import torch
 from references.pytorch_detection.engine import train_one_epoch
 from references.pytorch_detection.utils import collate_fn
 from references.pytorch_maskrcnn_coco.coco import CocoConfig
-from trackrcnn_kitty.creators.backbone_with_fpn_creator import BackboneWithFPNCreator
-from trackrcnn_kitty.datasets.coco_dataset import CocoDataset, MainCOCODataset
+from creators.backbone_with_fpn_creator import BackboneWithFPNCreator
+from datasets import CocoDataset, MainCOCODataset
 from trackrcnn_kitty.models.mask_rcnn import CustomMaskRCNN
 
 if __name__ == '__main__':
@@ -26,7 +26,7 @@ if __name__ == '__main__':
     val_generator = torch.utils.data.DataLoader(val_set, batch_size=1, shuffle=True, num_workers=4, collate_fn=collate_fn)
 
     backbone = BackboneWithFPNCreator(use_resnet101=True,
-                                      pretrained_backbone=False,
+                                      pretrain_only_backbone=False,
                                       trainable_backbone_layers=5).get_instance()
 
     maskrcnn_params = {
@@ -37,7 +37,7 @@ if __name__ == '__main__':
 
     model = CustomMaskRCNN(num_classes=91,
                            backbone=backbone,
-                           pretrained_backbone=False,
+                           pretrain_only_backbone=False,
                            maskrcnn_params=maskrcnn_params,
                            fixed_size=(1024, 309))
     model.to(device)

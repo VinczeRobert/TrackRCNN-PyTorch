@@ -1,7 +1,12 @@
 {
   "dataset": "PennFudan",
   "dataset_path": "D:\\Robert\\PennFudanPed",
+  "num_workers": 4,
+
+  "task": "train+val",
+
   "image_size": [309, 1024],
+
   "transforms_list": ["flip"],
 
   "train_batch_size": 2,
@@ -9,16 +14,14 @@
   "learning_rate": 0.005,
   "num_epochs": 10,
 
-  "add_associations": false,
-
   "pytorch_pretrained_model": true,
+  "load_weights": false,
   "weights_path": "new",
-  "preprocess_weights": false,
+  "pretrain_only_backbone": false,
 
   "use_resnet101": false,
   "trainable_backbone_layers": 3,
   "freeze_batchnorm": true,
 
-  "task": "train+val",
-  "pretrained_backbone": false
+  "add_associations": false
 }

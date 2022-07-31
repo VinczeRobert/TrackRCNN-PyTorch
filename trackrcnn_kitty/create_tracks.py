@@ -8,10 +8,11 @@ import torch
 import torch.nn.functional as F
 import cv2 as cv
 
-import trackrcnn_kitty.datasets.transforms as T
+import datasets.transforms as T
+from datasets.kitti_seg_track_dataset import KITTISegTrackDataset
 from references.pytorch_detection.utils import collate_fn
 from trackrcnn_kitty.adnotate import adnotate
-from trackrcnn_kitty.datasets.kitti_seg_track_dataset import KITTISegTrackDataset
+
 
 
 MATCHING_THRESHOLD_CAR = 0.25
@@ -55,11 +56,11 @@ def find_tracks_for_one_image(targets_j, targets_jm1, association_dict, obj_id_c
     extra_columns = []
     if row_column_diff > 0:
         # There are more rows than columns, columns need to be padded
-        av_distances = F.pad(input=av_distances, pad=(0, row_column_diff, 0, 0), mode='constant', value=0)
+        av_distances = F.pad(input=av_distances, pad=(0, row_column_diff, 0, 0), mode='constant', value=10000)
         extra_columns = [k for k in range(orig_columns_numbers, orig_columns_numbers + row_column_diff)]
     elif row_column_diff < 0:
         # There are more columns than rows, rows need to be added
-        av_distances = F.pad(input=av_distances, pad=(0, 0, 0, abs(row_column_diff)), mode='constant')
+        av_distances = F.pad(input=av_distances, pad=(0, 0, 0, abs(row_column_diff)), mode='constant', value=10000)
 
     # this method works directly on the inputs
     # it returns a list of tuples of dim 2

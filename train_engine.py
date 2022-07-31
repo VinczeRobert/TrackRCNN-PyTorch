@@ -2,14 +2,13 @@ import os
 
 import torch
 import numpy as np
-from torch.utils.tensorboard import SummaryWriter
 
 from references.pytorch_detection.engine import train_one_epoch, evaluate
 from references.pytorch_detection.utils import MetricLogger
 from trackrcnn_kitty.adnotate import adnotate
 from trackrcnn_kitty.create_tracks import adnotate_first_image, find_tracks_for_one_image
-from trackrcnn_kitty.creators.backbone_with_fpn_creator import BackboneWithFPNCreator
-from trackrcnn_kitty.creators.data_loader_creator import get_data_loaders
+from creators.backbone_with_fpn_creator import BackboneWithFPNCreator
+from datasets.data_loader_creator import get_data_loaders
 from trackrcnn_kitty.models.mask_rcnn import CustomMaskRCNN
 from trackrcnn_kitty.models.track_rcnn import TrackRCNN
 
@@ -28,11 +27,10 @@ class TrainEngine:
         self.device = get_device()
         self.config = config
         self.data_loaders, num_classes = get_data_loaders(self.config)
-        self.writer = SummaryWriter("tensorboard/robert-maskrcnn-exp1")
 
         backbone = BackboneWithFPNCreator(trainable_backbone_layers=self.config.trainable_backbone_layers,
                                           use_resnet101=self.config.use_resnet101,
-                                          pretrained_backbone=self.config.pretrained_backbone,
+                                          pretrain_only_backbone=self.config.pretrain_only_backbone,
                                           freeze_batchnorm=self.config.freeze_batchnorm,
                                           fpn_out_channels=self.config.fpn_out_channels,
                                           add_last_layer=self.config.add_last_layer).get_instance()
@@ -49,9 +47,9 @@ class TrainEngine:
 
         # If the backbone was no pretrained weights, we are going to try to use
         # pretrained weights for the whole model
-        if self.config.pretrained_backbone is False:
-            self.model.load_weights(self.config.weights_path, self.config.preprocess_weights,
-                                    self.config.use_resnet101)
+        if self.config.pretrain_only_backbone is False:
+            self.model.load_weights(self.config.weights_path, self.config.load_weights,
+                                    self.config.training_from_mapillary, self.config.use_resnet101)
 
         if self.config.pytorch_pretrained_model:
             self.model.finetune(num_classes)

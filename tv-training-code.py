@@ -1,10 +1,7 @@
 # Sample code from the TorchVision 0.3 Object Detection Finetuning Tutorial
 # http://pytorch.org/tutorials/intermediate/torchvision_tutorial.html
 
-import os
-import numpy as np
 import torch
-from PIL import Image
 
 import torchvision
 from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
@@ -13,12 +10,11 @@ from torchvision.models.detection.mask_rcnn import MaskRCNNPredictor
 # from engine import train_one_epoch, evaluate
 # import utils
 # import transforms as T
-from torchvision.transforms.functional import adjust_gamma
 
 from references.pytorch_detection.engine import train_one_epoch, evaluate
 from references.pytorch_detection.utils import collate_fn
 from references.pytorch_detection import  transforms as T
-from trackrcnn_kitty.datasets.penn_fudan_dataset import PennFudanDataset
+from datasets import PennFudanDataset
 
 
 def get_model_instance_segmentation(num_classes):

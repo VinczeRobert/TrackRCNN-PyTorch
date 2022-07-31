@@ -2,7 +2,7 @@ import sys
 import os
 
 from trackrcnn_kitty.json_config import JSONConfig
-from trackrcnn_kitty.train_engine import TrainEngine
+from train_engine import TrainEngine
 
 if __name__ == '__main__':
     assert len(sys.argv) >= 2, "Config file path is missing"
