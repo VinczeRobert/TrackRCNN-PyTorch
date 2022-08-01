@@ -17,8 +17,6 @@ model_urls = {
     "maskrcnn_resnet50_fpn_coco": "https://download.pytorch.org/models/maskrcnn_resnet50_fpn_coco-bf2d0c1e.pth",
 }
 
-COCO_DATASET_CLASSES = 91
-
 
 class CustomMaskRCNN(MaskRCNN):
     def __init__(self,
@@ -38,7 +36,7 @@ class CustomMaskRCNN(MaskRCNN):
 
         # The number of classes of the COCO dataset that the backbone is pretrained one is 91
         super(CustomMaskRCNN, self).__init__(backbone,
-                                             COCO_DATASET_CLASSES if config.pytorch_pretrained_model else num_classes,
+                                             config.num_pretrained_classes,
                                              rpn_anchor_generator=rpn_anchor_generator,
                                              **config.maskrcnn_params)
 
@@ -54,7 +52,7 @@ class CustomMaskRCNN(MaskRCNN):
             self.transform = GeneralizedRCNNTransform(min_size, max_size, image_mean, image_std,
                                                       fixed_size=self.train_image_size)
 
-    def forward(self, images, targets=None, image_sizes=None):
+    def forward(self, images, targets=None):
         if self.training and targets is None:
             raise ValueError("In training mode, targets should be passed")
 
@@ -87,7 +85,7 @@ class CustomMaskRCNN(MaskRCNN):
 
         return detections
 
-    def load_weights(self, weights_path, load_weights, training_from_mapillary, use_resnet101=False):
+    def load_weights(self, weights_path, load_weights, use_resnet101=False):
         try:
             if os.path.exists(weights_path) and load_weights:
                 try:
@@ -97,13 +95,6 @@ class CustomMaskRCNN(MaskRCNN):
                     # torch.cuda.is_available() is False.
                     state_dict = torch.load(weights_path, map_location=torch.device('cpu'))
 
-                if training_from_mapillary:
-                    state_dict["model_state"].pop("roi_heads.box_predictor.cls_score.weight")
-                    state_dict["model_state"].pop("roi_heads.box_predictor.cls_score.bias")
-                    state_dict["model_state"].pop("roi_heads.box_predictor.bbox_pred.weight")
-                    state_dict["model_state"].pop("roi_heads.box_predictor.bbox_pred.bias")
-                    state_dict["model_state"].pop("roi_heads.mask_predictor.mask_fcn_logits.weight")
-                    state_dict["model_state"].pop("roi_heads.mask_predictor.mask_fcn_logits.bias")
                 self.load_state_dict(state_dict["model_state"], strict=False)
                 print('Succesfully loaded custom weights!')
 
@@ -117,7 +108,7 @@ class CustomMaskRCNN(MaskRCNN):
                     overwrite_eps(self, 0.0)
                     print('Succesfully loaded pytorch pretrained weights from COCO Resnet50!')
                 else:
-                    print('Maskrcnn with Resnet101 does not have pretrained weights. Stopping program!')
+                    print('Maskrcnn with Resnet101 does not have pretrained weights. Stopping the program!')
                     sys.exit(-1)
 
         except RuntimeError as e:

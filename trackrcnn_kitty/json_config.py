@@ -33,7 +33,7 @@ class JSONConfig:
         self.load_weights = data.get("load_weights", False)
         self.weights_path = data.get("weights_path", None)
         self.pretrain_only_backbone = data.get("pretrain_only_backbone", False)
-        self.training_from_mapillary = data.get("training_from_mapillary", False)
+        self.num_pretrained_classes = data.get("num_pretrained_classes", 91)
 
         self.use_resnet101 = data.get("use_resnet101", True)
         self.trainable_backbone_layers = data.get("trainable_backbone_layers", 3)

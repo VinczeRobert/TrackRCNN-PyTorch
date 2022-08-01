@@ -26,11 +26,11 @@
   "num_epochs": 5,
   "epochs_to_validate": 5,
 
-  "pytorch_pretrained_model": true,
+  "pytorch_pretrained_model": false,
   "load_weights": true,
   "weights_path": "weights/trackrcnn_on_mapillary.pth",
   "pretrain_only_backbone": false,
-  "training_from_mapillary": true,
+  "num_pretrained_classes": 3,
 
   "use_resnet101": false,
   "trainable_backbone_layers": 3,

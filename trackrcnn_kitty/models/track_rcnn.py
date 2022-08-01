@@ -40,7 +40,7 @@ class TrackRCNN(CustomMaskRCNN):
         self.relu = nn.ReLU()
 
         if config.pytorch_pretrained_model:
-            num_classes = 91
+            num_classes = config.num_pretrained_classes
 
         association_roi_pool = MultiScaleRoIAlign(
             featmap_names=['0', '1', '2', '3'],
@@ -75,7 +75,7 @@ class TrackRCNN(CustomMaskRCNN):
         images, targets = self.transform(images, targets)
         check_for_degenerate_boxes(targets)
 
-        # Run the inputs through the backbone (resnet101) and fpn
+        # Run the inputs through the backbone and fpn
         feature_dict = self.backbone(images.tensors)
 
         # Run the inputs through the Conv3D Layers for tracking

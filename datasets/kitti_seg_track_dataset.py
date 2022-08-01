@@ -86,7 +86,7 @@ class KITTISegTrackDataset(Dataset):
 
         # split the color-encoded mask into a set
         # of binary masks
-        masks = mask == obj_ids[:, None, None]
+        masks = mask_array == obj_ids[:, None, None]
 
         # get bounding box coordinates for each mask
         num_objs = len(obj_ids)
@@ -108,7 +108,7 @@ class KITTISegTrackDataset(Dataset):
             else:
                 num_objs = num_objs - 1
 
-        if len(num_objs) == 0:
+        if num_objs == 0:
             # Images with no valid detections will be also filtered out at training time
             return None, None
 
@@ -122,11 +122,12 @@ class KITTISegTrackDataset(Dataset):
             labels.append(obj_id // 1000)
 
         # Convert everything into a tensor
-        boxes = torch.as_tensor(boxes, dtype=torch.float32)
-        masks = torch.as_tensor(masks, dtype=torch.int64)
-        areas = torch.as_tensor(areas, dtype=torch.float32)
-        labels = torch.as_tensor(labels, dtype=torch.int64)
-        obj_ids = torch.as_tensor(obj_ids, dtype=torch.int16)
+        boxes = torch.tensor(boxes, dtype=torch.float32)
+        masks = torch.tensor(masks, dtype=torch.uint8)
+        areas = torch.tensor(areas, dtype=torch.float32)
+        labels = torch.tensor(labels, dtype=torch.int64)
+        obj_ids = torch.tensor(obj_ids, dtype=torch.int16)
+        image_id = torch.tensor([idx])
 
         # suppose all instances are not crowd because we explicitly eliminated ignore regions
         is_crowd = torch.zeros((num_objs,), dtype=torch.int64)
@@ -134,10 +135,11 @@ class KITTISegTrackDataset(Dataset):
         target = {
             "boxes": boxes,
             "masks": masks,
-            "areas": areas,
+            "area": areas,
             "labels": labels,
             "obj_ids": obj_ids,
-            "iscrowd": is_crowd
+            "iscrowd": is_crowd,
+            "image_id": image_id
         }
 
         if self.transforms is not None:

@@ -48,8 +48,7 @@ class TrainEngine:
         # If the backbone was no pretrained weights, we are going to try to use
         # pretrained weights for the whole model
         if self.config.pretrain_only_backbone is False:
-            self.model.load_weights(self.config.weights_path, self.config.load_weights,
-                                    self.config.training_from_mapillary, self.config.use_resnet101)
+            self.model.load_weights(self.config.weights_path, self.config.load_weights, self.config.use_resnet101)
 
         if self.config.pytorch_pretrained_model:
             self.model.finetune(num_classes)

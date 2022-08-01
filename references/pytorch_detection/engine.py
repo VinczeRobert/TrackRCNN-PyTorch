@@ -4,7 +4,6 @@ import time
 
 import torch
 import torchvision.models.detection.mask_rcnn
-from torchvision.models.detection.transform import GeneralizedRCNNTransform
 
 from references.pytorch_detection import utils
 from references.pytorch_detection.coco_eval import CocoEvaluator
@@ -18,16 +17,8 @@ def train_one_epoch(model, optimizer, data_loader, device, epoch, print_freq):
     metric_logger = utils.MetricLogger(delimiter="  ")
     metric_logger.add_meter('lr', utils.SmoothedValue(window_size=1, fmt='{value:.6f}'))
     header = 'Epoch: [{}]'.format(epoch)
-    transform = GeneralizedRCNNTransform(800, 1333, [0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
 
     for images, targets in metric_logger.log_every(data_loader, print_freq, header):
-        # valid_idx = [idx for idx in range(len(targets)) if len(targets[idx]["boxes"]) > 0]
-        # images = [images[idx] for idx in valid_idx]
-        # targets = [targets[idx] for idx in valid_idx]
-        # images, targets = transform(images, targets)
-        # image_sizes = images.image_sizes
-        # images = torch.split(images.tensors, 1, dim=0)
-        # images = [image.reshape((image.shape[1], image.shape[2], image.shape[3])) for image in images]
 
         images = list(image.to(device) for image in images)
         targets = [{k: v.to(device) for k, v in t.items() if isinstance(v, torch.Tensor)} for t in targets]
@@ -84,8 +75,8 @@ def evaluate(model, data_loader, device):
     coco_evaluator = CocoEvaluator(coco, iou_types)
 
     for image, targets in metric_logger.log_every(data_loader, 100, header):
-        image = list(img.to(device) for img in image)
-        targets = [{k: v.to(device) for k, v in t.items() if isinstance(v, torch.Tensor)} for t in targets]
+        image = list(img.to(device) for img in image if img is not None)
+        targets = [{k: v.to(device) for k, v in t.items() if isinstance(v, torch.Tensor)} for t in targets if t is not None]
 
         torch.cuda.synchronize()
         model_time = time.time()
