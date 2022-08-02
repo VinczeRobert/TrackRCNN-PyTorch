@@ -36,11 +36,7 @@ class TrackRCNN(CustomMaskRCNN):
         }
         self.conv3d_temp_1 = SepConvTemp3D(conv3d_parameters_1, conv3d_parameters_2, backbone_output_dim)
         self.conv3d_temp_2 = SepConvTemp3D(conv3d_parameters_1, conv3d_parameters_2, backbone_output_dim)
-
         self.relu = nn.ReLU()
-
-        if config.pytorch_pretrained_model:
-            num_classes = config.num_pretrained_classes
 
         association_roi_pool = MultiScaleRoIAlign(
             featmap_names=['0', '1', '2', '3'],
@@ -54,6 +50,7 @@ class TrackRCNN(CustomMaskRCNN):
         association_head = AssociationHead(backbone.out_channels * resolution ** 2, representation_size)
 
         # # Override the RoI heads to have access to custom forward method
+        num_classes = config.num_pretrained_classes
         self.roi_heads = RoIHeadsCustom(backbone.out_channels,
                                         num_classes,
                                         self.roi_heads.mask_roi_pool,
@@ -62,7 +59,7 @@ class TrackRCNN(CustomMaskRCNN):
                                         association_roi_pool,
                                         association_head)
 
-    def forward(self, images, targets=None):
+    def forward(self, images, targets=None, image_sizes=None):
         if self.training and targets is None:
             raise ValueError("In training mode, targets should be passes")
 

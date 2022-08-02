@@ -50,24 +50,32 @@ class TrainEngine:
         if self.config.pretrain_only_backbone is False:
             self.model.load_weights(self.config.weights_path, self.config.load_weights, self.config.use_resnet101)
 
-        if self.config.pytorch_pretrained_model:
+        if num_classes != self.config.num_pretrained_classes:
             self.model.finetune(num_classes)
 
         self.model.to(self.device)
 
     def training(self):
         params = [p for p in self.model.parameters() if p.requires_grad]
-        # optimizer = torch.optim.Adam(params, lr=self.config.learning_rate)
-        optimizer = torch.optim.SGD(params, lr=self.config.learning_rate, momentum=0.9, weight_decay=0.005)
+        if self.config.optimizer_params["name"] == "sgd":
+            optimizer = torch.optim.SGD(params, lr=self.config.learning_rate,
+                                        momentum=self.config.optimizer_params.get("momentum", 0.9),
+                                        weight_decay=self.config.optimizer_params.get("weight_decay", 0.005))
+        else:
+            optimizer = torch.optim.Adam(params, lr=self.config.learning_rate)
 
-        lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer,
-                                                       step_size=4,
-                                                       gamma=0.1)
+        lr_scheduler = None
+        if self.config.lr_scheduler_step_size is not None and self.config.lr_scheduler_gamma is not None:
+            lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer,
+                                                           step_size=self.config.lr_scheduler_step_size,
+                                                           gamma=self.config.lr_scheduler_gamma)
 
         for epoch in range(self.config.num_epochs):
             # train for one epoch, printing every 10 iterations
             train_one_epoch(self.model, optimizer, self.data_loaders["train"], self.device, epoch, print_freq=10)
-            lr_scheduler.step()
+
+            if lr_scheduler:
+                lr_scheduler.step()
 
             checkpoint = {
                 "epoch": self.config.num_epochs,
@@ -75,6 +83,8 @@ class TrainEngine:
                 "optim_state": optimizer.state_dict()
             }
 
+            # For optimizing the experiments weights are saved at every iteration
+            # and handled manually after
             try:
                 torch.save(checkpoint, f"trackrcnn_on_mapillary{epoch}.pth")
             except OSError:
@@ -87,6 +97,8 @@ class TrainEngine:
         self.model.transform.fixed_size = self.config.test_image_size if self.config.fixed_image_size else None
         evaluate(self.model, self.data_loaders["test"], device=self.device)
 
+    # TODO: currently this is not used because it gives an error right before the second validation. Reasons not
+    #  known yet.
     def training_and_evaluating(self):
         params = [p for p in self.model.parameters() if p.requires_grad]
         optimizer = torch.optim.SGD(params, lr=self.config.learning_rate,
@@ -121,17 +133,17 @@ class TrainEngine:
 
         print("Training complete.")
 
-    def evaluate_and_save_results(self, directory):
+    def save_bounding_box_results(self, directory):
+        # If the evaluate method of this class (which uses pycocotools) is too slow, an
+        # alternative for mAP on bounding boxes is: https://github.com/Cartucho/mAP.
+        # In order to use this repo, bounding boxes need to be saved in a certain format.
         self.model.transform.fixed_size = self.config.test_image_size if self.config.fixed_image_size else None
-        self.model.load_state_dict(torch.load(self.config.weights_path)["model_state"])
         self.model.eval()
         metric_logger = MetricLogger(delimiter=" ")
         current_index = 0
         for images, targets, in metric_logger.log_every(self.data_loaders["test"], 100, "Test:"):
-            torch.cuda.empty_cache()
+            # torch.cuda.empty_cache()
             images = list(img.to(self.device) for img in images)
-
-            torch.cuda.synchronize()
             outputs = self.model(images)
 
             current_inner_index = current_index
@@ -260,6 +272,7 @@ class TrainEngine:
                 last_output_from_batch = outputs[-1]
                 last_target_from_batch = targets[-1]
 
+    # TODO: This is currently incorrect. Needs to be fixed in the end.
     def calculate_metrics(self):
         self.model.eval()
         # Initializing values needed

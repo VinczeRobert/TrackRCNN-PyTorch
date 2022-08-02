@@ -15,6 +15,7 @@
     375
   ],
   "fixed_image_size": false,
+  "resize_on_gpu": true,
 
   "transforms_list": [
     "flip"
@@ -25,8 +26,14 @@
   "learning_rate": 0.0005,
   "num_epochs": 5,
   "epochs_to_validate": 5,
+  "optimizer_parameters": {
+    "name": "sgd",
+    "momentum": 0.9,
+    "weight_decay": 0.0005
+  },
+  "lr_scheduler_step_size": 4,
+  "lr_scheduler_gamma": 0.1,
 
-  "pytorch_pretrained_model": false,
   "load_weights": true,
   "weights_path": "weights/trackrcnn_on_mapillary.pth",
   "pretrain_only_backbone": false,
@@ -41,5 +48,7 @@
   "maskrcnn_params": {
   },
 
-  "add_associations": true
+  "add_associations": true,
+  "car_confidence_thresh": 0.84698,
+  "pedestrian_confidence_thresh": 0.93688
 }

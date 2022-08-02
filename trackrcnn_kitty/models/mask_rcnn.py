@@ -40,6 +40,7 @@ class CustomMaskRCNN(MaskRCNN):
                                              rpn_anchor_generator=rpn_anchor_generator,
                                              **config.maskrcnn_params)
 
+        self.resize_on_gpu = config.resize_on_gpu
         if config.fixed_image_size:
             self.train_image_size = config.train_image_size
             self.test_image_size = config.test_image_size
@@ -48,11 +49,11 @@ class CustomMaskRCNN(MaskRCNN):
             image_std = [0.229, 0.224, 0.225]
             min_size = 800
             max_size = 1333
-            # If validation is done instead of training, fixed_size will be changed
+            # If validation is done instead of training, fixed_size will be changed later
             self.transform = GeneralizedRCNNTransform(min_size, max_size, image_mean, image_std,
                                                       fixed_size=self.train_image_size)
 
-    def forward(self, images, targets=None):
+    def forward(self, images, targets=None, image_sizes=None):
         if self.training and targets is None:
             raise ValueError("In training mode, targets should be passed")
 
@@ -62,7 +63,8 @@ class CustomMaskRCNN(MaskRCNN):
             assert len(val) == 2
             original_image_sizes.append((val[0], val[1]))
 
-        images, targets = self.transform(images, targets)
+        if self.resize_on_gpu:
+            images, targets = self.transform(images, targets)
 
         check_for_degenerate_boxes(targets)
 

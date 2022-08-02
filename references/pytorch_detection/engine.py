@@ -12,6 +12,25 @@ from references.pytorch_detection.coco_utils import get_coco_api_from_dataset
 torch.cuda.empty_cache()
 
 
+def __resize_on_cpu(images, targets, transform):
+    valid_idx = [idx for idx in range(len(targets)) if len(targets[idx]["boxes"]) > 0]
+    images = [images[idx] for idx in valid_idx]
+    targets = [targets[idx] for idx in valid_idx]
+    images, targets = transform(images, targets)
+    image_sizes = images.image_sizes
+    images = torch.split(images.tensors, 1, dim=0)
+    images = [image.reshape((image.shape[1], image.shape[2], image.shape[3])) for image in images]
+
+    return images, targets, image_sizes
+
+
+def __to_device(images, targets, device):
+    images = list(img.to(device) for img in images if img is not None)
+    targets = [{k: v.to(device) for k, v in t.items() if isinstance(v, torch.Tensor)} for
+               t in targets if t is not None]
+    return images, targets
+
+
 def train_one_epoch(model, optimizer, data_loader, device, epoch, print_freq):
     model.train()
     metric_logger = utils.MetricLogger(delimiter="  ")
@@ -19,12 +38,15 @@ def train_one_epoch(model, optimizer, data_loader, device, epoch, print_freq):
     header = 'Epoch: [{}]'.format(epoch)
 
     for images, targets in metric_logger.log_every(data_loader, print_freq, header):
+        image_sizes = None
+        if model.resize_on_gpu is False:
+            images, targets, image_sizes = __resize_on_cpu(images, targets, model.transform)
+        images, targets = __to_device(images, targets, device)
 
-        images = list(image.to(device) for image in images)
-        targets = [{k: v.to(device) for k, v in t.items() if isinstance(v, torch.Tensor)} for t in targets]
+        if len(targets) == 0:
+            continue
 
-        # loss_dict = model(images, targets, image_sizes)
-        loss_dict = model(images, targets)
+        loss_dict = model(images, targets, image_sizes)
 
         losses = sum(loss for loss in loss_dict.values())
 
@@ -74,13 +96,19 @@ def evaluate(model, data_loader, device):
     iou_types = _get_iou_types(model)
     coco_evaluator = CocoEvaluator(coco, iou_types)
 
-    for image, targets in metric_logger.log_every(data_loader, 100, header):
-        image = list(img.to(device) for img in image if img is not None)
-        targets = [{k: v.to(device) for k, v in t.items() if isinstance(v, torch.Tensor)} for t in targets if t is not None]
+    for images, targets in metric_logger.log_every(data_loader, 100, header):
+        image_sizes = None
+        if model.resize_on_gpu is False:
+            images, targets, image_sizes = __resize_on_cpu(images, targets, model.transform)
+        images, targets = __to_device(images, targets, device)
 
-        torch.cuda.synchronize()
+        if len(targets) == 0:
+            continue
+
+        if device.type == "cuda":
+            torch.cuda.synchronize()
         model_time = time.time()
-        outputs = model(image)
+        outputs = model(images, image_sizes=image_sizes)
 
         outputs = [{k: v.to(cpu_device) for k, v in t.items()} for t in outputs]
         model_time = time.time() - model_time

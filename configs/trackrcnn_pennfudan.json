@@ -14,7 +14,6 @@
   "learning_rate": 0.005,
   "num_epochs": 10,
 
-  "pytorch_pretrained_model": true,
   "load_weights": false,
   "weights_path": "new",
   "pretrain_only_backbone": false,

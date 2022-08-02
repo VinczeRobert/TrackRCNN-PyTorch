@@ -18,7 +18,7 @@ if __name__ == '__main__':
     elif config.task == "train+val":
         train_engine.training_and_evaluating()
     elif config.task == "save_preds":
-        train_engine.evaluate_and_save_results(os.path.join("predictions", os.path.basename(config.dataset_path)))
+        train_engine.save_bounding_box_results(os.path.join("predictions", os.path.basename(config.dataset_path)))
     elif config.task == "annotate":
         train_engine.annotate_results_with_tracking()
     elif config.task == "metrics":
