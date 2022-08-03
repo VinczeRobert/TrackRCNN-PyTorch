@@ -48,8 +48,18 @@ class JSONConfig:
 
         self.add_associations = data.get("add_associations", False)
         if self.add_associations:
-            self.car_confidence_thresh = data.get("car_confidence_thresh")
-            self.pedestrian_confidence_thresh = data.get("pedestrian_confidence_thresh")
+            self.confidence_threshold_car = data.get("confidence_threshold_car")
+            self.reid_weight_car = data.get("reid_weight_car")
+            self.association_threshold_car = data.get("association_threshold_car")
+            self.keep_alive_car = data.get("keep_alive_car")
+            self.reid_euclidean_offset_car = data.get("reid_euclidean_offset_car")
+            self.reid_euclidean_scale_car = data.get("reid_euclidean_scale_car")
+            self.confidence_threshold_pedestrian = data.get("confidence_threshold_pedestrian")
+            self.reid_weight_pedestrian = data.get("reid_weight_pedestrian")
+            self.association_threshold_pedestrian = data.get("association_threshold_pedestrian")
+            self.keep_alive_pedestrian = data.get("keep_alive_pedestrian")
+            self.reid_euclidean_offset_pedestrian = data.get("reid_euclidean_offset_pedestrian")
+            self.reid_euclidean_scale_pedestrian = data.get("reid_euclidean_scale_pedestrian")
 
     @staticmethod
     def get_instance(path):

@@ -20,7 +20,7 @@ if __name__ == '__main__':
     elif config.task == "save_preds":
         train_engine.save_bounding_box_results(os.path.join("predictions", os.path.basename(config.dataset_path)))
     elif config.task == "annotate":
-        train_engine.annotate_results_with_tracking()
+        train_engine.annotate_results_with_tracking_using_association_vectors()
     elif config.task == "metrics":
         train_engine.calculate_metrics()
     else:

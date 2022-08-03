@@ -2,6 +2,7 @@ import os
 
 import torch
 import numpy as np
+import pycocotools.mask as cocomask
 
 from references.pytorch_detection.engine import train_one_epoch, evaluate
 from references.pytorch_detection.utils import MetricLogger
@@ -11,6 +12,7 @@ from creators.backbone_with_fpn_creator import BackboneWithFPNCreator
 from datasets.data_loader_creator import get_data_loaders
 from trackrcnn_kitty.models.mask_rcnn import CustomMaskRCNN
 from trackrcnn_kitty.models.track_rcnn import TrackRCNN
+from trackrcnn_kitty.tracking_utils import track_sequence, make_tracks_disjoint, visualize_tracks
 
 from trackrcnn_kitty.utils import write_detection_to_file, write_gt_to_file, get_device, compute_overlaps_masks
 
@@ -213,10 +215,13 @@ class TrainEngine:
         self.model.eval()
         obj_id = 1
         for images, targets in self.data_loaders["test"]:
-            images = list(img.to(self.device) for img in images)
+            images = list(img.to(self.device) for img in images if img is not None)
+            targets = list(target for target in targets if target is not None)
+            if len(images) == 0:
+                continue
             outputs = self.model(images)
             for idx, output in enumerate(outputs):
-                masks_to_draw, _ = self.__filter_masks(output)
+                masks_to_draw, _, _ = self.__filter_masks(output)
 
                 if len(masks_to_draw) == 0:
                     continue
@@ -330,3 +335,44 @@ class TrainEngine:
         sMOTSA = (soft_TP - FP - IDS) / M
         print("MOTSA score is: " + str(MOTSA))
         print("sMOTSA score is: " + str(sMOTSA))
+
+    def annotate_results_with_tracking_using_association_vectors(self):
+        self.model.eval()
+        images = []
+        outputs = []
+
+        for images_batch, _ in self.data_loaders["test"]:
+            images_batch = list(img.to(self.device) for img in images_batch)
+            outputs_batch = self.model(images_batch)
+            images.extend(images_batch)
+            outputs.extend(outputs_batch)
+
+        tracker_options = {
+            "confidence_threshold_car": self.config.confidence_threshold_car,
+            "reid_weight_car": self.config.reid_weight_car,
+            "association_threshold_car": self.config.association_threshold_car,
+            "keep_alive_car": self.config.keep_alive_car,
+            "reid_euclidean_offset_car": self.config.reid_euclidean_offset_car,
+            "reid_euclidean_scale_car": self.config.reid_euclidean_scale_car,
+            "confidence_threshold_pedestrian": self.config.confidence_threshold_pedestrian,
+            "reid_weight_pedestrian": self.config.reid_weight_pedestrian,
+            "association_threshold_pedestrian": self.config.association_threshold_pedestrian,
+            "keep_alive_pedestrian": self.config.keep_alive_pedestrian,
+            "reid_euclidean_offset_pedestrian": self.config.reid_euclidean_offset_pedestrian,
+            "reid_euclidean_scale_pedestrian": self.config.reid_euclidean_scale_pedestrian
+        }
+
+        boxes = [output["boxes"].cpu().numpy() for output in outputs]
+        scores = [output["scores"].cpu().numpy() for output in outputs]
+        association_vectors = [output["association_vectors"].cpu().numpy() for output in outputs]
+        classes = [output["labels"].cpu().numpy() for output in outputs]
+        masks = [output["masks"].cpu().numpy() for output in outputs]
+        masks = [cocomask.encode(np.asfortranarray(m.squeeze(axis=0), dtype=np.uint8))
+                    for m in np.vsplit(masks, len(boxes))]
+
+        tracks = track_sequence(tracker_options, boxes, scores, association_vectors, classes, masks)
+
+        # This method solves the issue of overlapping pixels.
+        # If a pixel is covered by more than one object mask, it will be assigned to the one with higher score
+        tracks = make_tracks_disjoint(tracks)
+        visualize_tracks(self.config.sequence_number, tracks, images)

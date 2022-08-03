@@ -55,12 +55,18 @@ class KITTISegTrackDataset(Dataset):
         return len(self.images)
 
     def __getitem__(self, idx):
+        image_path = self.images[idx]
+        mask_path = self.masks[idx]
+        if self.sequence_number is not None:
+            image_path = os.path.join(self.sequence_number, image_path)
+            mask_path = os.path.join(self.sequence_number, mask_path)
+
         if self.train:
-            image_path = os.path.join(self.root_path, "images/training", self.images[idx])
-            mask_path = os.path.join(self.root_path, "annotations/instances", self.masks[idx])
+            image_path = os.path.join(self.root_path, "images/training", image_path)
+            mask_path = os.path.join(self.root_path, "annotations/instances", mask_path)
         else:
-            image_path = os.path.join(self.root_path, "images/validation", self.images[idx])
-            mask_path = os.path.join(self.root_path, "annotations/val-instances", self.masks[idx])
+            image_path = os.path.join(self.root_path, "images/validation", image_path)
+            mask_path = os.path.join(self.root_path, "annotations/val-instances", mask_path)
 
         image = Image.open(image_path).convert("RGB")
         mask = Image.open(mask_path)
@@ -82,7 +88,22 @@ class KITTISegTrackDataset(Dataset):
             # but here we do tracking and the relationships between consecutive images matter
             # More specifically, when calculating the association loss, we want it to be calculated for
             # batch_size adjacent frames, even if a good chunk of those frames might not have detections in it.
-            return None, None
+
+            if self.train:
+                # Images with no valid detections in it are ignored during training
+                return image, None
+            else:
+                # If we do any kind of testing/validation, we can't ignore the image
+                dummy_target = {
+                    "boxes": torch.Tensor(),
+                    "masks": torch.Tensor(),
+                    "area": torch.Tensor(),
+                    "labels": torch.Tensor(),
+                    "obj_ids": torch.Tensor(),
+                    "iscrowd": torch.Tensor(),
+                    "image_id": torch.tensor([idx])
+                }
+                return image, dummy_target
 
         # split the color-encoded mask into a set
         # of binary masks
@@ -110,7 +131,22 @@ class KITTISegTrackDataset(Dataset):
 
         if num_objs == 0:
             # Images with no valid detections will be also filtered out at training time
-            return None, None
+
+            if self.train:
+                # Images with no valid detections in it are ignored during training
+                return image, None
+            else:
+                # If we do any kind of testing/validation, we can't ignore the image
+                dummy_target = {
+                    "boxes": torch.Tensor(),
+                    "masks": torch.Tensor(),
+                    "area": torch.Tensor(),
+                    "labels": torch.Tensor(),
+                    "obj_ids": torch.Tensor(),
+                    "iscrowd": torch.Tensor(),
+                    "image_id": torch.tensor([idx])
+                }
+                return image, dummy_target
 
         # there are two classes (excluding background)
         # we can get the class of an object by doing
@@ -139,7 +175,8 @@ class KITTISegTrackDataset(Dataset):
             "labels": labels,
             "obj_ids": obj_ids,
             "iscrowd": is_crowd,
-            "image_id": image_id
+            "image_id": image_id,
+            "image_path": image_path
         }
 
         if self.transforms is not None:
