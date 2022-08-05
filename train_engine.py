@@ -3,6 +3,7 @@ import os
 import torch
 import numpy as np
 import pycocotools.mask as cocomask
+import cv2 as cv
 
 from references.pytorch_detection.engine import train_one_epoch, evaluate
 from references.pytorch_detection.utils import MetricLogger
@@ -59,10 +60,10 @@ class TrainEngine:
 
     def training(self):
         params = [p for p in self.model.parameters() if p.requires_grad]
-        if self.config.optimizer_params["name"] == "sgd":
+        if self.config.optimizer_parameters["name"] == "sgd":
             optimizer = torch.optim.SGD(params, lr=self.config.learning_rate,
-                                        momentum=self.config.optimizer_params.get("momentum", 0.9),
-                                        weight_decay=self.config.optimizer_params.get("weight_decay", 0.005))
+                                        momentum=self.config.optimizer_parameters.get("momentum", 0.9),
+                                        weight_decay=self.config.optimizer_parameters.get("weight_decay", 0.005))
         else:
             optimizer = torch.optim.Adam(params, lr=self.config.learning_rate)
 
@@ -163,6 +164,37 @@ class TrainEngine:
                 # write_segmentation_mask_to_file(output["masks"], masks_file_name)
                 print(current_index)
                 current_index = current_index + 1
+
+    def save_preds_coco_format(self, results_path):
+        torch.cuda.empty_cache()
+        self.model.transform.fixed_size = self.config.test_image_size if self.config.fixed_image_size else None
+        self.model.eval()
+        metric_logger = MetricLogger(delimiter=" ")
+        track = 0
+        for images, targets, in metric_logger.log_every(self.data_loaders["test"], 100, "Test:"):
+            # torch.cuda.empty_cache()
+            images = list(img.to(self.device) for img in images)
+            outputs = self.model(images)
+
+            with torch.no_grad():
+                for output in outputs:
+                    boxes = output["boxes"].cpu().numpy()
+                    scores = output["scores"].cpu().numpy()
+                    labels = output["labels"].cpu().numpy()
+                    association_vectors = output["association_vectors"].cpu().numpy()
+                    masks = output["masks"].cpu().numpy()
+                    masks = masks.reshape((masks.shape[0], masks.shape[2], masks.shape[3]))
+                    masks = masks > 0.5
+                    masks = masks.astype("uint8")
+                    masks = [cocomask.encode(np.asfortranarray(m.squeeze(axis=0), dtype=np.uint8))
+                             for m in np.vsplit(masks, len(boxes))]
+
+                    with open(results_path, "a") as f:
+                        for box, score, association_vector, class_, mask in zip(boxes, scores, association_vectors,
+                                                                                labels, masks):
+                            print(track, *box, score, class_, *mask["size"], mask["counts"].decode(encoding="UTF-8"),
+                                *association_vector, file=f)
+                        track = track + 1
 
     def __filter_masks(self, output):
         masks_to_draw = []
@@ -336,16 +368,47 @@ class TrainEngine:
         print("MOTSA score is: " + str(MOTSA))
         print("sMOTSA score is: " + str(sMOTSA))
 
-    def annotate_results_with_tracking_using_association_vectors(self):
-        self.model.eval()
-        images = []
-        outputs = []
+    def annotate_results_with_tracking_using_association_vectors(self, detections_import_path):
 
-        for images_batch, _ in self.data_loaders["test"]:
-            images_batch = list(img.to(self.device) for img in images_batch)
-            outputs_batch = self.model(images_batch)
-            images.extend(images_batch)
-            outputs.extend(outputs_batch)
+        with open(detections_import_path) as f:
+            content = f.readlines()
+
+        boxes = []
+        scores = []
+        association_vectors = []
+        classes = []
+        masks = []
+        for line in content:
+            entries = line.split(' ')
+            t = int(entries[0])
+            while t + 1 > len(boxes):
+                boxes.append([])
+                scores.append([])
+                association_vectors.append([])
+                classes.append([])
+                masks.append([])
+            boxes[t].append([float(entries[1]), float(entries[2]), float(entries[3]), float(entries[4])])
+            scores[t].append(float(entries[5]))
+            classes[t].append(int(entries[6]))
+
+            masks[t].append({"size": [int(entries[7]), int(entries[8])],
+                             "counts": entries[9].strip().encode(encoding='UTF-8')})
+            association_vectors[t].append([float(e) for e in entries[10:]])
+
+        while len(self.data_loaders["test"]) > len(boxes):
+            boxes.append([])
+            scores.append([])
+            association_vectors.append([])
+            classes.append([])
+            masks.append([])
+
+        # transform into numpy arrays
+        for t in range(len(boxes)):
+            if len(boxes[t]) > 0:
+                boxes[t] = np.vstack(boxes[t])
+                scores[t] = np.array(scores[t])
+                classes[t] = np.array(classes[t])
+                association_vectors[t] = np.vstack(association_vectors[t])
 
         tracker_options = {
             "confidence_threshold_car": self.config.confidence_threshold_car,
@@ -362,17 +425,18 @@ class TrainEngine:
             "reid_euclidean_scale_pedestrian": self.config.reid_euclidean_scale_pedestrian
         }
 
-        boxes = [output["boxes"].cpu().numpy() for output in outputs]
-        scores = [output["scores"].cpu().numpy() for output in outputs]
-        association_vectors = [output["association_vectors"].cpu().numpy() for output in outputs]
-        classes = [output["labels"].cpu().numpy() for output in outputs]
-        masks = [output["masks"].cpu().numpy() for output in outputs]
-        masks = [cocomask.encode(np.asfortranarray(m.squeeze(axis=0), dtype=np.uint8))
-                    for m in np.vsplit(masks, len(boxes))]
-
         tracks = track_sequence(tracker_options, boxes, scores, association_vectors, classes, masks)
 
         # This method solves the issue of overlapping pixels.
         # If a pixel is covered by more than one object mask, it will be assigned to the one with higher score
-        tracks = make_tracks_disjoint(tracks)
-        visualize_tracks(self.config.sequence_number, tracks, images)
+        # tracks = make_tracks_disjoint(tracks)
+
+        # Gather images
+        sequence_root_path = os.path.join(self.config.dataset_path, "images", "validation", self.config.sequence_number)
+        base_paths = os.listdir(sequence_root_path)
+        image_paths = [os.path.join(sequence_root_path, base_path) for base_path in base_paths]
+        all_images = []
+        for path in image_paths:
+            image = cv.imread(path, -1)
+            all_images.append(image)
+        visualize_tracks(self.config.sequence_number, tracks, all_images)

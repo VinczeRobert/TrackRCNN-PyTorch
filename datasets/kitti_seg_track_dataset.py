@@ -91,7 +91,7 @@ class KITTISegTrackDataset(Dataset):
 
             if self.train:
                 # Images with no valid detections in it are ignored during training
-                return image, None
+                return None, None
             else:
                 # If we do any kind of testing/validation, we can't ignore the image
                 dummy_target = {
@@ -103,6 +103,9 @@ class KITTISegTrackDataset(Dataset):
                     "iscrowd": torch.Tensor(),
                     "image_id": torch.tensor([idx])
                 }
+
+                if self.transforms is not None:
+                    image, dummy_target = self.transforms(image, dummy_target)
                 return image, dummy_target
 
         # split the color-encoded mask into a set
@@ -146,6 +149,9 @@ class KITTISegTrackDataset(Dataset):
                     "iscrowd": torch.Tensor(),
                     "image_id": torch.tensor([idx])
                 }
+
+                if self.transforms is not None:
+                    image, dummy_target = self.transforms(image, dummy_target)
                 return image, dummy_target
 
         # there are two classes (excluding background)

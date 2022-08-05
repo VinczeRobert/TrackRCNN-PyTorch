@@ -6,11 +6,7 @@ import numpy as np
 SAVE_TRACKING_RESULTS_PATH = "D:\\Robert\\EXPERIMENTAL_RESULTS"
 
 
-def adnotate(image_path, masks, obj_ids, colors):
-    image = cv.imread(image_path, -1)
-    image = np.asarray(image, dtype=np.float64)
-    image_name = os.path.basename(image_path)
-
+def adnotate(image, masks, obj_ids, colors, save_path):
     for idx, mask in enumerate(masks):
         # equal color where mask, else image
         # this would paint your object silhouette entirely with `color`
@@ -36,8 +32,7 @@ def adnotate(image_path, masks, obj_ids, colors):
         font = cv.FONT_HERSHEY_SIMPLEX
         cv.putText(image, 'ID: ' + str(obj_ids[i]+1), (x_middle, y_middle), font, 0.5, (0, 0, 0), 2, cv.LINE_AA)
 
-        filename = os.path.join(SAVE_TRACKING_RESULTS_PATH, image_name)
-        cv.imwrite(filename, image)
+        cv.imwrite(save_path, image)
 
 
 if __name__ == '__main__':

@@ -25,7 +25,7 @@ def __resize_on_cpu(images, targets, transform):
 
 
 def __to_device(images, targets, device):
-    images = list(img.to(device) for img in images if img)
+    images = list(img.to(device) for img in images if img is not None)
     targets = [{k: v.to(device) for k, v in t.items() if isinstance(v, torch.Tensor)} for
                t in targets if t is not None]
     return images, targets

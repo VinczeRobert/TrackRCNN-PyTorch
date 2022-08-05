@@ -2,7 +2,7 @@
   "dataset": "KITTISegTrack",
   "dataset_path": "D:\\Robert\\KITTITrackSegDataset",
   "num_workers": 4,
-  "sequence_number": "0002",
+  "sequence_number": "0014",
 
   "task": "annotate",
 
@@ -22,7 +22,7 @@
   ],
 
   "train_batch_size": 6,
-  "test_batch_size": 4,
+  "test_batch_size": 2,
   "learning_rate": 0.0000005,
   "num_epochs": 40,
   "epochs_to_validate": 5,
@@ -35,7 +35,7 @@
   "lr_scheduler_gamma": 0.1,
 
   "load_weights": true,
-  "weights_path": "trackrcnn_on_mapillary9.pth",
+  "weights_path": "trackrcnn_on_mapillary49.pth",
   "pretrain_only_backbone": false,
   "num_pretrained_classes": 3,
 
@@ -49,13 +49,13 @@
   },
 
   "add_associations": true,
-  "confidence_threshold_car": 0.8469800990815324,
+  "confidence_threshold_car": 0.84,
   "reid_weight_car": 1.0,
-  "association_threshold_car": 0.8165986526897969,
+  "association_threshold_car": 0.8469800990815324,
   "keep_alive_car": 4,
   "reid_euclidean_offset_car": 8.810218833503743,
   "reid_euclidean_scale_car": 1.0090931467228708,
-  "confidence_threshold_pedestrian": 0.9368829989063415,
+  "confidence_threshold_pedestrian": 0.7,
   "reid_weight_pedestrian": 1.0,
   "association_threshold_pedestrian": 0.47985540892434836,
   "keep_alive_pedestrian": 6,

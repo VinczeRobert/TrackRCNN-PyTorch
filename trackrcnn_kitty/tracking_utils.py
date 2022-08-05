@@ -4,9 +4,12 @@ from collections import namedtuple
 import numpy as np
 import munkres
 import os
+
+from PIL import Image
 from scipy.spatial.distance import cdist
 import pycocotools.mask as cocomask
 
+from trackrcnn_kitty.adnotate import adnotate
 
 TrackElement_ = namedtuple("TrackElement", ["track_number", "box", "association_vector", "track_id", "class_", "mask",
                                             "score"])
@@ -19,7 +22,7 @@ def track_for_class(tracker_options_for_class, boxes, scores, association_vector
     all_tracks = []
     active_tracks = []
     munkres_obj = munkres.Munkres()
-    for track_number, (boxes_t, scores_t, association_vectors_t, classes_t, masks_t) in enumerate(
+    for time, (boxes_t, scores_t, association_vectors_t, classes_t, masks_t) in enumerate(
             zip(boxes, scores, association_vectors, classes, masks)):
         detections_t = []
         for box, score, association_vector, class_, mask in \
@@ -28,7 +31,7 @@ def track_for_class(tracker_options_for_class, boxes, scores, association_vector
                 continue
             if mask is not None and cocomask.area(mask) <= 10:
                 continue
-            if score >= tracker_options_for_class["detection_confidence_threshold"]:
+            if score >= tracker_options_for_class["confidence_threshold"]:
                 detections_t.append((box, association_vector, mask, class_, score))
             else:
                 continue
@@ -37,7 +40,7 @@ def track_for_class(tracker_options_for_class, boxes, scores, association_vector
         elif len(active_tracks) == 0:
             current_tracks = []
             for det in detections_t:
-                current_tracks.append(TrackElement_(track_number=track_number,
+                current_tracks.append(TrackElement_(track_number=time,
                                                     box=det[0],
                                                     association_vector=det[1],
                                                     mask=det[2],
@@ -50,7 +53,7 @@ def track_for_class(tracker_options_for_class, boxes, scores, association_vector
 
             if tracker_options_for_class["reid_weight"] != 0:
                 current_association_vectors = np.array([x[1] for x in detections_t], dtype="float64")
-                last_association_vectors = np.array([x.reid for x in active_tracks], dtype="float64")
+                last_association_vectors = np.array([x.association_vector for x in active_tracks], dtype="float64")
 
                 av_dists = cdist(current_association_vectors, last_association_vectors, "euclidean")
                 reid_similarities = tracker_options_for_class["reid_euclidean_scale"] * \
@@ -73,7 +76,7 @@ def track_for_class(tracker_options_for_class, boxes, scores, association_vector
                 if value == 1e9:
                     continue
                 det = detections_t[row]
-                track_element = TrackElement_(track_number=track_number, box=det[0], association_vector=det[1],
+                track_element = TrackElement_(track_number=time, box=det[0], association_vector=det[1],
                                               mask=det[2], class_=det[3], track_id=active_tracks[column].track_id,
                                               score=det[4])
                 current_tracks.append(track_element)
@@ -81,7 +84,7 @@ def track_for_class(tracker_options_for_class, boxes, scores, association_vector
 
             for det, assigned in zip(detections_t, detections_asigned):
                 if not assigned:
-                    current_tracks.append(TrackElement_(track_number=track_number, box=det[0],
+                    current_tracks.append(TrackElement_(track_number=time, box=det[0],
                                                         association_vector=det[1], mask=det[2], class_=det[3],
                                                         track_id=max_track_id, score=det[4]))
                     max_track_id += 1
@@ -90,7 +93,7 @@ def track_for_class(tracker_options_for_class, boxes, scores, association_vector
         newly_active_ids = {track.track_id for track in current_tracks}
         active_tracks = [track for track in active_tracks
                          if track.track_id not in newly_active_ids and track.track_number >=
-                         track_number - tracker_options_for_class["keep_alive"]]
+                         time - tracker_options_for_class["keep_alive"]]
         active_tracks.extend(current_tracks)
 
     # remove the association vector values, since they are an implementation detail of the tracker and should not
@@ -189,45 +192,13 @@ def apply_mask(image, mask, color, alpha=0.5):
     return image
 
 
+COLORS = [np.random.choice(range(256), size=3) for _ in range(50)]
+
+
 def visualize_detections(det_boxes, det_classes, det_masks, det_scores, image, ids, save_path):
-    colors = generate_colors()
-    if save_path is not None:
-        import matplotlib
-        matplotlib.use("Agg")
-    import matplotlib.pyplot as plt
-    fig = plt.figure()
-    dpi = 100.0
-    fig.set_size_inches(image.shape[1] / dpi, image.shape[0] / dpi, forward=True)
-    fig.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=None, hspace=None)
-    ax = fig.subplots()
-    ax.set_axis_off()
-    assert len(det_boxes) == len(det_scores) == len(det_classes) == len(det_masks)
+    colors = [COLORS[id] for id in ids]
+    adnotate(image, det_masks, ids, colors, save_path)
 
-    for idx, (bbox, score, class_, mask) in enumerate(zip(det_boxes, det_scores, det_classes, det_masks)):
-        color = colors[ids[idx] % len(colors)]
-
-        if class_ == 1:
-            category_name = "Car"
-        elif class_ == 2:
-            category_name = "Pedestrian"
-        else:
-            category_name = "Ignore"
-            color = (0.7, 0.7, 0.7)
-
-        if class_ == 1 or class_ == 2:
-            if ids is not None:
-                category_name += ":" + str(ids[idx])
-            if score < 1.0:
-                category_name += ":" + "%.2f" % score
-            bbox = [bbox[0], bbox[1], bbox[2] - bbox[0], bbox[3] - bbox[1]]
-
-            ax.annotate(category_name, (bbox[0] + 0.5 * bbox[2], bbox[1] + 0.5 * bbox[3]), color=color, weight='bold',
-                        fontsize=7, ha='center', va='center', alpha=1.0)
-            apply_mask(image, mask, color, alpha=score * 0.5)
-
-    ax.imshow(image)
-    fig.savefig(save_path, dpi=dpi)
-    plt.close(fig)
 
 
 def visualize_tracks(sequence_number, tracks, images):
@@ -240,7 +211,7 @@ def visualize_tracks(sequence_number, tracks, images):
 
         out_folder = os.path.join("tracks_created", sequence_number)
         os.makedirs(out_folder, exist_ok=True)
-        out_filename = out_folder + "/%6d.jpg" % t
+        out_filename = os.path.join(out_folder, "%06d.jpg" % t)
 
-        visualize_detections(boxes, classes, masks, scores, images, ids, out_filename)
+        visualize_detections(boxes, classes, masks, scores, image, ids, out_filename)
 

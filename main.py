@@ -19,8 +19,12 @@ if __name__ == '__main__':
         train_engine.training_and_evaluating()
     elif config.task == "save_preds":
         train_engine.save_bounding_box_results(os.path.join("predictions", os.path.basename(config.dataset_path)))
+    elif config.task == "save_preds_coco":
+        train_engine.save_preds_coco_format(os.path.join("predictions", os.path.basename(config.dataset_path),
+                                                         config.sequence_number + ".txt"))
     elif config.task == "annotate":
-        train_engine.annotate_results_with_tracking_using_association_vectors()
+        train_engine.annotate_results_with_tracking_using_association_vectors(
+            "D:\\Robert\\TrackRCNNPytorch\predictions\\KITTITrackSegDataset\\0014.txt")
     elif config.task == "metrics":
         train_engine.calculate_metrics()
     else:
