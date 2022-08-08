@@ -1,23 +1,18 @@
 from collections import OrderedDict
 
-from torch import nn, Tensor
+from torchvision.models.detection.image_list import ImageList
 from torchvision.ops import MultiScaleRoIAlign
-
-from trackrcnn_kitty.models.association_head import AssociationHead
-from trackrcnn_kitty.models.layers import SepConvTemp3D
-from trackrcnn_kitty.models.mask_rcnn import CustomMaskRCNN
-from trackrcnn_kitty.models.roi_heads import RoIHeadsCustom
-from trackrcnn_kitty.utils import check_for_degenerate_boxes
+import torch
+from models.association_head import AssociationHead
+from models.layers import SepConvTemp3D
+from models.mask_rcnn import CustomMaskRCNN
+from models.roi_heads import RoIHeadsCustom
+from utils.miscellaneous_utils import check_for_degenerate_boxes
 
 
 class TrackRCNN(CustomMaskRCNN):
-    def __init__(self,
-                 num_classes,
-                 backbone,
-                 config):
-        super(TrackRCNN, self).__init__(num_classes,
-                                        backbone,
-                                        config)
+    def __init__(self, backbone, config, is_dataset_resized):
+        super(TrackRCNN, self).__init__(backbone, config, is_dataset_resized)
 
         backbone_output_dim = backbone.out_channels
 
@@ -36,7 +31,7 @@ class TrackRCNN(CustomMaskRCNN):
         }
         self.conv3d_temp_1 = SepConvTemp3D(conv3d_parameters_1, conv3d_parameters_2, backbone_output_dim)
         self.conv3d_temp_2 = SepConvTemp3D(conv3d_parameters_1, conv3d_parameters_2, backbone_output_dim)
-        self.relu = nn.ReLU()
+        self.relu = torch.nn.ReLU()
 
         association_roi_pool = MultiScaleRoIAlign(
             featmap_names=['0', '1', '2', '3'],
@@ -59,7 +54,7 @@ class TrackRCNN(CustomMaskRCNN):
                                         association_roi_pool,
                                         association_head)
 
-    def forward(self, images, targets=None, image_sizes=None):
+    def forward(self, images, targets=None):
         if self.training and targets is None:
             raise ValueError("In training mode, targets should be passes")
 
@@ -68,11 +63,17 @@ class TrackRCNN(CustomMaskRCNN):
             val = img.shape[-2:]
             assert len(val) == 2
             original_image_sizes.append((val[0], val[1]))
-
-        images, targets = self.transform(images, targets)
         check_for_degenerate_boxes(targets)
 
-        # Run the inputs through the backbone and fpn
+        if self.is_dataset_resized:
+            # the transforms have been already applied on the dataset
+            # ImageList object needs to be created manually
+            images = torch.stack(images, dim=0)
+            images = ImageList(images, [(1024, 1024) for _ in range(len(images))])
+        else:
+            images, targets = self.transform(images, targets)
+
+        # Run the images through the backbone (resnet50/resnet101) and fpn
         feature_dict = self.backbone(images.tensors)
 
         # Run the inputs through the Conv3D Layers for tracking
@@ -83,7 +84,7 @@ class TrackRCNN(CustomMaskRCNN):
             temp = self.relu(temp)
             feature_dict[layer_name] = temp
 
-        if isinstance(feature_dict, Tensor):
+        if isinstance(feature_dict, torch.Tensor):
             feature_dict = OrderedDict([("0", feature_dict)])
 
         proposals, proposel_losses = self.rpn(images, feature_dict, targets)

@@ -9,9 +9,11 @@ from torchvision.models.detection import MaskRCNN
 from torchvision.models.detection._utils import overwrite_eps
 from torchvision.models.detection.anchor_utils import AnchorGenerator
 from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
+from torchvision.models.detection.image_list import ImageList
 from torchvision.models.detection.mask_rcnn import MaskRCNNPredictor
 from torchvision.models.detection.transform import GeneralizedRCNNTransform
-from trackrcnn_kitty.utils import check_for_degenerate_boxes
+
+from utils.miscellaneous_utils import check_for_degenerate_boxes
 
 model_urls = {
     "maskrcnn_resnet50_fpn_coco": "https://download.pytorch.org/models/maskrcnn_resnet50_fpn_coco-bf2d0c1e.pth",
@@ -19,10 +21,8 @@ model_urls = {
 
 
 class CustomMaskRCNN(MaskRCNN):
-    def __init__(self,
-                 num_classes,
-                 backbone,
-                 config):
+    def __init__(self, backbone, config, is_dataset_resized):
+        self.is_dataset_resized = is_dataset_resized
 
         rpn_anchor_generator = None
         if config.maskrcnn_params is not None and isinstance(config.maskrcnn_params, dict):
@@ -36,11 +36,9 @@ class CustomMaskRCNN(MaskRCNN):
 
         # The number of classes of the COCO dataset that the backbone is pretrained one is 91
         super(CustomMaskRCNN, self).__init__(backbone,
-                                             config.num_pretrained_classes,
                                              rpn_anchor_generator=rpn_anchor_generator,
                                              **config.maskrcnn_params)
 
-        self.resize_on_gpu = config.resize_on_gpu
         if config.fixed_image_size:
             self.train_image_size = config.train_image_size
             self.test_image_size = config.test_image_size
@@ -53,7 +51,7 @@ class CustomMaskRCNN(MaskRCNN):
             self.transform = GeneralizedRCNNTransform(min_size, max_size, image_mean, image_std,
                                                       fixed_size=self.train_image_size)
 
-    def forward(self, images, targets=None, image_sizes=None):
+    def forward(self, images, targets=None):
         if self.training and targets is None:
             raise ValueError("In training mode, targets should be passed")
 
@@ -62,13 +60,17 @@ class CustomMaskRCNN(MaskRCNN):
             val = img.shape[-2:]
             assert len(val) == 2
             original_image_sizes.append((val[0], val[1]))
-
-        if self.resize_on_gpu:
-            images, targets = self.transform(images, targets)
-
         check_for_degenerate_boxes(targets)
 
-        # Run the images through the backbone (resnet101) and fpn
+        if self.is_dataset_resized:
+            # the transforms have been already applied on the dataset
+            # ImageList object needs to be created manually
+            images = torch.stack(images, dim=0)
+            images = ImageList(images, [(1024, 1024) for _ in range(len(images))])
+        else:
+            images, targets = self.transform(images, targets)
+
+        # Run the images through the backbone (resnet50/resnet101) and fpn
         feature_dict = self.backbone(images.tensors)
 
         if isinstance(feature_dict, Tensor):
@@ -98,7 +100,7 @@ class CustomMaskRCNN(MaskRCNN):
                     state_dict = torch.load(weights_path, map_location=torch.device('cpu'))
 
                 self.load_state_dict(state_dict["model_state"], strict=False)
-                print('Succesfully loaded custom weights!')
+                print('Successfully loaded custom weights!')
 
             else:
                 # If we don't have a valid weights path we are going to try
@@ -108,7 +110,7 @@ class CustomMaskRCNN(MaskRCNN):
                     state_dict = load_state_dict_from_url(model_urls["maskrcnn_resnet50_fpn_coco"])
                     self.load_state_dict(state_dict, strict=False)
                     overwrite_eps(self, 0.0)
-                    print('Succesfully loaded pytorch pretrained weights from COCO Resnet50!')
+                    print('Successfully loaded pytorch pretrained weights from COCO Resnet50!')
                 else:
                     print('Maskrcnn with Resnet101 does not have pretrained weights. Stopping the program!')
                     sys.exit(-1)

@@ -1,30 +1,33 @@
 import sys
 import os
 
-from trackrcnn_kitty.json_config import JSONConfig
-from train_engine import TrainEngine
+from json_config import JSONConfig
+from trackrcnn_pytorch_engine import TrackRCNNPyTorchEngine
 
 if __name__ == '__main__':
     assert len(sys.argv) >= 2, "Config file path is missing"
     assert os.path.exists(sys.argv[1]), "Config file is invalid"
 
     config = JSONConfig.get_instance(sys.argv[1])
-    train_engine = TrainEngine(config)
+    train_engine = TrackRCNNPyTorchEngine(config)
 
     if config.task == "train":
-        train_engine.training()
+        train_engine.train()
     elif config.task == "val":
         train_engine.evaluate()
     elif config.task == "train+val":
-        train_engine.training_and_evaluating()
+        train_engine.train_and_evaluate()
     elif config.task == "save_preds":
         train_engine.save_bounding_box_results(os.path.join("predictions", os.path.basename(config.dataset_path)))
     elif config.task == "save_preds_coco":
-        train_engine.save_preds_coco_format(os.path.join("predictions", os.path.basename(config.dataset_path),
-                                                         config.sequence_number + ".txt"))
-    elif config.task == "annotate":
-        train_engine.annotate_results_with_tracking_using_association_vectors(
-            "D:\\Robert\\TrackRCNNPytorch\predictions\\KITTITrackSegDataset\\0014.txt")
+        train_engine.forward_predictions_for_tracking(os.path.join("predictions", os.path.basename(config.dataset_path),
+                                                                   config.sequence_number + ".txt"))
+    elif config.task == "annotate_seq":
+        if config.add_associations:
+            train_engine.annotate_results_with_tracking(
+                "D:\\Robert\\TrackRCNNPytorch\predictions\\KITTITrackSegDataset\\0014.txt")
+        else:
+            train_engine.annotate_results_without_tracking()
     elif config.task == "metrics":
         train_engine.calculate_metrics()
     else:

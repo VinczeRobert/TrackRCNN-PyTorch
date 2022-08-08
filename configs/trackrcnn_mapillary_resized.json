@@ -1,0 +1,41 @@
+{
+  "dataset": "MapillaryInstSegResized",
+  "dataset_path": "D:\\Robert\\Mapillary-resize-training",
+  "num_workers": 4,
+
+  "task": "train",
+
+  "transforms_list": [
+    "flip"
+  ],
+
+  "train_batch_size": 4,
+  "test_batch_size": 2,
+  "learning_rate": 0.001,
+  "num_epochs": 8,
+  "epochs_to_validate": 5,
+    "optimizer_parameters": {
+    "name": "sgd",
+    "momentum": 0.9,
+    "weight_decay": 0.0005
+  },
+
+  "load_weights": false,
+  "weights_path": "D:\\Robert\\TrackRCNNPytorch\\trackrcnn_kitty\\mapillary_resnet101_weights\\mapillary_resnet1017.pth",
+  "pretrain_only_backbone": true,
+  "num_pretrained_classes": 38,
+  "epochs_to_save_weights": 1,
+  "saved_weights_name": "resnet",
+
+  "use_resnet101": true,
+  "trainable_backbone_layers": 1,
+  "freeze_batchnorm": true,
+  "add_last_layer": true,
+  "fpn_out_channels": 256,
+
+  "maskrcnn_params": {
+  },
+
+  "add_associations": false
+}
+

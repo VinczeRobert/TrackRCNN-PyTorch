@@ -2,7 +2,7 @@ import torch
 from torch import nn
 import numpy as np
 
-from trackrcnn_kitty.utils import get_device
+from utils.miscellaneous_utils import get_device
 
 
 class SepConvTemp3D(nn.Module):

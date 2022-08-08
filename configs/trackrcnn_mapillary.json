@@ -1,6 +1,7 @@
 {
   "dataset": "MapillaryInstSeg",
-  "dataset_path": "/Users/robert.vincze/Downloads/Mapillary32x32Val",
+  "dataset_path": "D:\\Robert\\Mapillary",
+  "all_classes": true,
   "num_workers": 4,
 
   "task": "train",
@@ -30,6 +31,8 @@
   "weights_path": "weights/mapillary_32x327.pth",
   "pretrain_only_backbone": false,
   "num_pretrained_classes": 38,
+  "epochs_to_save_weights": 1,
+  "saved_weights_name": "resnet",
 
   "use_resnet101": false,
   "trainable_backbone_layers": 3,

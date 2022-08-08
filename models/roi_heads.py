@@ -4,9 +4,8 @@ from torchvision.models.detection.faster_rcnn import TwoMLPHead, FastRCNNPredict
 from torchvision.models.detection.roi_heads import RoIHeads
 from torchvision.ops import MultiScaleRoIAlign
 
-from trackrcnn_kitty.losses import AssociationLoss
-from trackrcnn_kitty.models.association_head import AssociationHead
-from trackrcnn_kitty.utils import compute_overlaps
+from models.association_loss import AssociationLoss
+from utils.metrics_utils import compute_overlaps
 
 
 class RoIHeadsCustom(RoIHeads):

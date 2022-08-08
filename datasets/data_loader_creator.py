@@ -2,6 +2,7 @@ import sys
 
 import torch
 
+from datasets.resized_dataset import ResizedDataset
 from references.pytorch_detection.utils import collate_fn
 from datasets.dataset_factory import get_dataset
 import datasets.transforms as T
@@ -45,6 +46,7 @@ def get_data_loaders(config):
             config.num_workers
         )
         num_classes = training_dataset.num_classes
+        is_dataset_resized = isinstance(training_dataset, ResizedDataset)
     elif config.task in ["val", "save_preds", "annotate", "metrics", "save_preds_coco"]:
         transforms = __get_transforms(config.transforms_list, False)
         testing_dataset = get_dataset(config, transforms, False)
@@ -55,6 +57,7 @@ def get_data_loaders(config):
             config.num_workers
         )
         num_classes = testing_dataset.num_classes
+        is_dataset_resized = isinstance(testing_dataset, ResizedDataset)
     elif config.task == "train+val":
         train_transforms = __get_transforms(config.transforms_list, True)
         test_transforms = __get_transforms(config.transforms_list, False)
@@ -73,8 +76,10 @@ def get_data_loaders(config):
             config.num_workers
         )
         num_classes = training_dataset.num_classes
+        # Here there is an assumption that either both datasets are resized or none of them are
+        is_dataset_resized = isinstance(training_dataset, ResizedDataset)
     else:
         print("Invalid task in configuration file! Stopping program.")
         sys.exit(-1)
 
-    return data_loaders, num_classes
+    return data_loaders, num_classes, is_dataset_resized

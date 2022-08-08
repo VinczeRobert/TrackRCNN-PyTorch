@@ -11,6 +11,7 @@ class JSONConfig:
         # Load dataset parameters
         self.dataset = data.get("dataset")
         self.dataset_path = data.get("dataset_path")
+        self.all_classes = data.get("all_classes", True)
         self.num_workers = data.get("num_workers", 4)
         self.sequence_number = data.get("sequence_number", None)
 
@@ -20,7 +21,6 @@ class JSONConfig:
         self.train_image_size = data.get("train_image_size", [309, 1024])
         self.test_image_size = data.get("test_image_size", [375, 1242])
         self.fixed_image_size = data.get("fixed_image_size", False)
-        self.resize_on_gpu = data.get("resize_on_gpu", True)
 
         self.transforms_list = data.get("transforms_list", [])
 
@@ -37,6 +37,8 @@ class JSONConfig:
         self.weights_path = data.get("weights_path", None)
         self.pretrain_only_backbone = data.get("pretrain_only_backbone", False)
         self.num_pretrained_classes = data.get("num_pretrained_classes", 91)
+        self.epochs_to_save_weights = data.get("epochs_to_save_weights", 1)
+        self.saved_weights_name = data.get("saved_weights_name", None)
 
         self.use_resnet101 = data.get("use_resnet101", True)
         self.trainable_backbone_layers = data.get("trainable_backbone_layers", 3)

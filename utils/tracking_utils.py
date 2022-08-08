@@ -1,15 +1,16 @@
-import colorsys
+"""
+The code from this file was taken and adjusted from:
+https://github.com/VisualComputingInstitute/TrackR-CNN/tree/master/forwarding/tracking
+"""
+import os
 from collections import namedtuple
 
-import numpy as np
 import munkres
-import os
-
-from PIL import Image
-from scipy.spatial.distance import cdist
+import numpy as np
 import pycocotools.mask as cocomask
+from scipy.spatial.distance import cdist
 
-from trackrcnn_kitty.adnotate import adnotate
+from utils.detection_utils import annotate_image
 
 TrackElement_ = namedtuple("TrackElement", ["track_number", "box", "association_vector", "track_id", "class_", "mask",
                                             "score"])
@@ -26,7 +27,7 @@ def track_for_class(tracker_options_for_class, boxes, scores, association_vector
             zip(boxes, scores, association_vectors, classes, masks)):
         detections_t = []
         for box, score, association_vector, class_, mask in \
-            zip(boxes_t, scores_t, association_vectors_t, classes_t, masks_t):
+                zip(boxes_t, scores_t, association_vectors_t, classes_t, masks_t):
             if class_ != class_to_track:
                 continue
             if mask is not None and cocomask.area(mask) <= 10:
@@ -57,7 +58,7 @@ def track_for_class(tracker_options_for_class, boxes, scores, association_vector
 
                 av_dists = cdist(current_association_vectors, last_association_vectors, "euclidean")
                 reid_similarities = tracker_options_for_class["reid_euclidean_scale"] * \
-                                  (tracker_options_for_class["reid_euclidean_offset"] - av_dists)
+                                    (tracker_options_for_class["reid_euclidean_offset"] - av_dists)
                 association_similarities += tracker_options_for_class["reid_weight"] * reid_similarities
 
             current_tracks = []
@@ -98,8 +99,9 @@ def track_for_class(tracker_options_for_class, boxes, scores, association_vector
 
     # remove the association vector values, since they are an implementation detail of the tracker and should not
     # be part of the result
-    result = [[TrackElement(box=track.box, track_id=track.track_id, mask=track.mask, class_=track.class_, score=track.score)
-               for track in tracks_t] for tracks_t in all_tracks]
+    result = [
+        [TrackElement(box=track.box, track_id=track.track_id, mask=track.mask, class_=track.class_, score=track.score)
+         for track in tracks_t] for tracks_t in all_tracks]
     return result
 
 
@@ -169,49 +171,15 @@ def make_tracks_disjoint(tracks):
     return tracks
 
 
-def generate_colors():
-    N = 30
-    brightness = 0.7
-    hsv = [(i / N, 1, brightness) for i in range(N)]
-    colors = list(map(lambda c: colorsys.hsv_to_rgb(*c), hsv))
-    perm = [15, 13, 25, 12, 19, 8, 22, 24, 29, 17, 28, 20, 2, 27, 11, 26, 21, 4, 3, 18, 9, 5, 14, 1, 16, 0, 23, 7, 6,
-            10]
-    colors = [colors[idx] for idx in perm]
-    return colors
-
-
-def apply_mask(image, mask, color, alpha=0.5):
-    """
-    Apply the given mask to the image.
-    """
-    for c in range(3):
-        image[:, :, c] = np.where(mask == 1,
-                                  image[:, :, c] *
-                                  (1 - alpha) + alpha * color[c],
-                                  image[:, :, c])
-    return image
-
-
-COLORS = [np.random.choice(range(256), size=3) for _ in range(50)]
-
-
-def visualize_detections(det_boxes, det_classes, det_masks, det_scores, image, ids, save_path):
-    colors = [COLORS[id] for id in ids]
-    adnotate(image, det_masks, ids, colors, save_path)
-
-
-
 def visualize_tracks(sequence_number, tracks, images):
+    out_folder = os.path.join("tracks_created", sequence_number)
+    os.makedirs(out_folder, exist_ok=True)
+
+    colors = [np.random.choice(range(256), size=3) for _ in range(50)]
     for t, (track, image) in enumerate(zip(tracks, images)):
-        boxes = [te.box for te in track]
-        classes = [te.class_ for te in track]
         masks = [cocomask.decode(te.mask) for te in track]
-        scores = [1.0 for _ in track]
         ids = [te.track_id for te in track]
 
-        out_folder = os.path.join("tracks_created", sequence_number)
-        os.makedirs(out_folder, exist_ok=True)
         out_filename = os.path.join(out_folder, "%06d.jpg" % t)
 
-        visualize_detections(boxes, classes, masks, scores, image, ids, out_filename)
-
+        annotate_image(image, masks, ids, [colors[id] for id in ids], out_filename)

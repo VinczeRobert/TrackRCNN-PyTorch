@@ -1,7 +1,7 @@
 import torch
 from torch import nn
 
-from trackrcnn_kitty.utils import get_device
+from utils.miscellaneous_utils import get_device
 
 
 def compute_association_loss_for_detection(curr_det_id, dst_matrix, dets_axis_0, dets_axis_1):
