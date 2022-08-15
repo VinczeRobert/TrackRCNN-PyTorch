@@ -11,28 +11,23 @@ class KITTISegTrackResizedDataset(ResizedDataset):
         self.num_classes = 3
 
         if self.train:
-            images_root_path = os.path.join(self.root_path, "images/training")
-            masks_root_path = os.path.join(self.root_path, "annotations/instances")
+            data_path = os.path.join(self.root_path, "training")
         else:
-            images_root_path = os.path.join(self.root_path, "images/validation")
-            masks_root_path = os.path.join(self.root_path, "annotations/val-instances")
+            data_path = os.path.join(self.root_path, "validation")
 
-        sequence_numbers = list(sorted(os.listdir(images_root_path)))
-        # only for Mac
-        if sequence_numbers[0] == ".DS_Store":
-            sequence_numbers = sequence_numbers[1:]
+        batch_folders = list(os.listdir(data_path))
 
         images = []
-        masks = []
-        for seq in sequence_numbers:
-            image_seq_root_path = os.path.join(images_root_path, seq)
-            masks_seq_root_path = os.path.join(masks_root_path, seq)
+        targets = []
+        for folder_name in batch_folders:
+            images_root_path = os.path.join(data_path, folder_name, "images")
+            targets_root_path = os.path.join(data_path, folder_name, "targets")
 
-            images = list(sorted(os.listdir(image_seq_root_path)))
-            masks = list(sorted(os.listdir(masks_seq_root_path)))
-            images = [os.path.join(seq, image) for image in images]
-            masks = [os.path.join(seq, mask) for mask in masks]
-            images.extend(images)
-            masks.extend(masks)
+            images_paths = list(sorted(os.listdir(images_root_path)))
+            targets_paths = list(sorted(os.listdir(targets_root_path)))
 
-        super().__init__(images, masks)
+            for image_path, target_path in zip(images_paths, targets_paths):
+                images.append(os.path.join(images_root_path, image_path))
+                targets.append(os.path.join(targets_root_path, target_path))
+
+        super().__init__(images, targets)

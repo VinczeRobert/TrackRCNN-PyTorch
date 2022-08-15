@@ -69,7 +69,7 @@ class TrackRCNN(CustomMaskRCNN):
             # the transforms have been already applied on the dataset
             # ImageList object needs to be created manually
             images = torch.stack(images, dim=0)
-            images = ImageList(images, [(1024, 1024) for _ in range(len(images))])
+            images = ImageList(images, [self.transform.fixed_size for _ in range(len(images))])
         else:
             images, targets = self.transform(images, targets)
 

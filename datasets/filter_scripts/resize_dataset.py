@@ -20,13 +20,13 @@ from datasets.mapillary_inst_seg_dataset import MapillaryInstSegDataset
 from references.pytorch_detection.utils import collate_fn
 
 if __name__ == '__main__':
-    root_path = "/Users/robert.vincze/Downloads/Mapillary-testing"
-    save_path = "/Users/robert.vincze/Downloads/Mapillary-testing-resize"
+    root_path = "D:\Robert\KITTITrackSegDataset"
+    save_path = "D:\Robert\KITTITrackSegDataset-Resized"
 
     all_classes = False
-    train = True
+    train = False
     transforms = T.Compose([T.ToTensor(), T.RandomHorizontalFlip(0.5)])
-    dataset_name = "Mapillary"  # can be "Mapillary or Kitti
+    dataset_name = "Kitti"  # can be "Mapillary or Kitti
 
     min_size = 800
     max_size = 1100
@@ -52,6 +52,12 @@ if __name__ == '__main__':
     batch_count = 0
     num_batches = len(data_loader)
     for images, targets in data_loader:
+        images = [image for image in images if image is not None]
+        targets = [target for target in targets if target is not None]
+
+        if len(images) == 0 or len(targets) == 0:
+            batch_count = batch_count + 1
+            continue
         images, targets = transform(images, targets)
         batch_path = os.path.join(save_path, str(count))
         os.mkdir(batch_path)
@@ -70,7 +76,7 @@ if __name__ == '__main__':
             obj_ids = target["obj_ids"].tolist()
             boxes = target["boxes"].tolist()
             labels = target["labels"].tolist()
-            areas = target["areas"].tolist()
+            areas = target["area"].tolist()
             iscrowd = target["iscrowd"].tolist()
             masks = target["masks"].cpu().numpy()
             masks = [cocomask.encode(np.asfortranarray(m.squeeze(axis=0), dtype=np.uint8))

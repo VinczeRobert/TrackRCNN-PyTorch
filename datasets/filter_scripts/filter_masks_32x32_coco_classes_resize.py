@@ -56,7 +56,7 @@ if __name__ == '__main__':
             obj_ids = target["obj_ids"].tolist()
             boxes = target["boxes"].tolist()
             labels = target["labels"].tolist()
-            areas = target["areas"].tolist()
+            areas = target["area"].tolist()
             iscrowd = target["iscrowd"].tolist()
             masks = target["masks"].cpu().numpy()
             masks = [cocomask.encode(np.asfortranarray(m.squeeze(axis=0), dtype=np.uint8))

@@ -111,7 +111,7 @@ class MapillaryInstSegDataset(Dataset):
             "boxes": boxes,
             "labels": labels,
             "masks": masks,
-            "areas": areas,
+            "area": areas,
             "iscrowd": is_crowd,
             "obj_ids": obj_ids,
         }

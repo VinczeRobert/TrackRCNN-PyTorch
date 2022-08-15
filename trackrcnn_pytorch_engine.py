@@ -79,7 +79,7 @@ class TrackRCNNPyTorchEngine:
                 }
 
                 try:
-                    torch.save(checkpoint, f"{self.config.saved_weights_path}_epoch={epoch}.pth")
+                    torch.save(checkpoint, f"{self.config.saved_weights_name}_epoch={epoch}.pth")
                 except OSError:
                     print("Error at saving!")
                     continue
@@ -127,10 +127,12 @@ class TrackRCNNPyTorchEngine:
 
         print("Training complete.")
 
-    def save_bounding_box_results(self, directory):
+    def save_bounding_box_results(self, dataset_path):
         # If the evaluate method of this class (which uses pycocotools) is too slow, an
         # alternative for mAP on bounding boxes is: https://github.com/Cartucho/mAP.
         # In order to use this repo, bounding boxes need to be saved in a certain format.
+
+        directory = os.path.join("predictions", os.path.basename(dataset_path))
         self.model.transform.fixed_size = self.config.test_image_size if self.config.fixed_image_size else None
         self.model.eval()
         metric_logger = MetricLogger(delimiter=" ")
@@ -156,13 +158,18 @@ class TrackRCNNPyTorchEngine:
                 print(current_index)
                 current_index = current_index + 1
 
-    def forward_predictions_for_tracking(self, results_path):
+    def forward_predictions_for_tracking(self, sequence_number):
+        results_dir_path = os.path.join("predictions", sequence_number)
         torch.cuda.empty_cache()
         self.model.transform.fixed_size = self.config.test_image_size if self.config.fixed_image_size else None
         self.model.eval()
+        os.makedirs(results_dir_path, exist_ok=True)
+        results_path = os.path.join(results_dir_path, os.path.basename(results_dir_path) + ".txt")
+        if os.path.exists(results_path):
+            os.remove(results_path)
         metric_logger = MetricLogger(delimiter=" ")
         track = 0
-        for images, targets, in metric_logger.log_every(self.data_loaders["test"], 100, "Test:"):
+        for images, _, in metric_logger.log_every(self.data_loaders["test"], 20, "Test:"):
             images = list(img.to(self.device) for img in images)
             outputs = self.model(images)
             track = save_tracking_prediction_for_batch(outputs, results_path, track)
@@ -183,7 +190,8 @@ class TrackRCNNPyTorchEngine:
             obj_id = save_detections_for_batch(outputs, targets, self.config.confidence_threshold_car,
                                                self.config.confidence_threshold_pedestrian, out_folder, obj_id)
 
-    def annotate_results_with_tracking(self, detections_import_path):
+    def annotate_results_with_tracking(self, sequence_number):
+        detections_import_path = os.path.join("predictions", sequence_number, sequence_number + ".txt")
         boxes, scores, association_vectors, classes, masks = load_tracking_predictions(detections_import_path)
 
         while len(self.data_loaders["test"]) > len(boxes):

@@ -18,14 +18,12 @@ if __name__ == '__main__':
     elif config.task == "train+val":
         train_engine.train_and_evaluate()
     elif config.task == "save_preds":
-        train_engine.save_bounding_box_results(os.path.join("predictions", os.path.basename(config.dataset_path)))
+        train_engine.save_bounding_box_results(config.dataset_path)
     elif config.task == "save_preds_coco":
-        train_engine.forward_predictions_for_tracking(os.path.join("predictions", os.path.basename(config.dataset_path),
-                                                                   config.sequence_number + ".txt"))
+        train_engine.forward_predictions_for_tracking(config.sequence_number)
     elif config.task == "annotate_seq":
         if config.add_associations:
-            train_engine.annotate_results_with_tracking(
-                "D:\\Robert\\TrackRCNNPytorch\predictions\\KITTITrackSegDataset\\0014.txt")
+            train_engine.annotate_results_with_tracking(config.sequence_number)
         else:
             train_engine.annotate_results_without_tracking()
     elif config.task == "metrics":

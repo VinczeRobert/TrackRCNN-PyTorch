@@ -76,6 +76,8 @@ def save_tracking_prediction_for_batch(outputs, results_path, track):
     with torch.no_grad():
         for output in outputs:
             boxes = output["boxes"].cpu().numpy()
+            if len(boxes) == 0:
+                continue
             scores = output["scores"].cpu().numpy()
             labels = output["labels"].cpu().numpy()
             association_vectors = output["association_vectors"].cpu().numpy()

@@ -47,7 +47,7 @@ def get_data_loaders(config):
         )
         num_classes = training_dataset.num_classes
         is_dataset_resized = isinstance(training_dataset, ResizedDataset)
-    elif config.task in ["val", "save_preds", "annotate", "metrics", "save_preds_coco"]:
+    elif config.task in ["val", "save_preds", "annotate", "metrics", "save_preds_coco", "annotate_seq"]:
         transforms = __get_transforms(config.transforms_list, False)
         testing_dataset = get_dataset(config, transforms, False)
         data_loaders["test"] = __get_data_loader(

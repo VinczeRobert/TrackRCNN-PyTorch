@@ -74,13 +74,13 @@ class KITTISegTrackDataset(Dataset):
         # convert the PIL Image into a numpy array
         mask_array = np.array(mask)
         # instances are encoded as different colors
-        obj_ids = np.unique(mask_array)
+        obj_ids_uf = np.unique(mask_array)
         # first id is the background, so remove it
-        obj_ids = obj_ids[1:]
+        obj_ids_uf = obj_ids_uf[1:]
         # remove object_ids that are equal to 10000
         # those are ignore regions
-        obj_ids = np.asarray(list(filter(lambda x: x != 10000, obj_ids)))
-        if len(obj_ids) == 0:
+        obj_ids_uf = np.asarray(list(filter(lambda x: x != 10000, obj_ids_uf)))
+        if len(obj_ids_uf) == 0:
             # It means the current image has no detections in it
             # so we will return None and filter it out at training time
 
@@ -110,14 +110,15 @@ class KITTISegTrackDataset(Dataset):
 
         # split the color-encoded mask into a set
         # of binary masks
-        masks = mask_array == obj_ids[:, None, None]
+        masks_uf = mask_array == obj_ids_uf[:, None, None]
 
         # get bounding box coordinates for each mask
-        num_objs = len(obj_ids)
         boxes = []
         areas = []
-        for i in range(num_objs):
-            pos = np.where(masks[i])
+        masks = []
+        obj_ids = []
+        for i in range(len(obj_ids_uf)):
+            pos = np.where(masks_uf[i])
             xmin = np.min(pos[1])
             xmax = np.max(pos[1])
             ymin = np.min(pos[0])
@@ -129,10 +130,10 @@ class KITTISegTrackDataset(Dataset):
             if area > 0:
                 boxes.append([xmin, ymin, xmax, ymax])
                 areas.append(area)
-            else:
-                num_objs = num_objs - 1
+                masks.append(masks_uf[i])
+                obj_ids.append(obj_ids_uf[i])
 
-        if num_objs == 0:
+        if len(boxes) == 0:
             # Images with no valid detections will be also filtered out at training time
 
             if self.train:
@@ -164,15 +165,15 @@ class KITTISegTrackDataset(Dataset):
             labels.append(obj_id // 1000)
 
         # Convert everything into a tensor
-        boxes = torch.tensor(boxes, dtype=torch.float32)
-        masks = torch.tensor(masks, dtype=torch.uint8)
-        areas = torch.tensor(areas, dtype=torch.float32)
-        labels = torch.tensor(labels, dtype=torch.int64)
-        obj_ids = torch.tensor(obj_ids, dtype=torch.int16)
-        image_id = torch.tensor([idx])
+        boxes = torch.tensor(np.array(boxes), dtype=torch.float32)
+        masks = torch.tensor(np.array(masks), dtype=torch.uint8)
+        areas = torch.tensor(np.array(areas), dtype=torch.float32)
+        labels = torch.tensor(np.array(labels), dtype=torch.int64)
+        obj_ids = torch.tensor(np.array(obj_ids), dtype=torch.int16)
+        image_id = torch.tensor(np.array([idx]))
 
         # suppose all instances are not crowd because we explicitly eliminated ignore regions
-        is_crowd = torch.zeros((num_objs,), dtype=torch.int64)
+        is_crowd = torch.zeros((len(boxes),), dtype=torch.int64)
 
         target = {
             "boxes": boxes,

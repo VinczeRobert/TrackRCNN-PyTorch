@@ -15,7 +15,6 @@
     375
   ],
   "fixed_image_size": false,
-  "resize_on_gpu": true,
 
   "transforms_list": [
     "flip"

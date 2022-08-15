@@ -150,8 +150,6 @@ def convert_to_coco_api(ds):
         # find better way to get target
         # targets = ds.get_annotations(img_idx)
         img, targets = ds[img_idx]
-        if img is None or targets is None:
-            continue
         image_id = targets["image_id"].item()
         img_dict = {}
         img_dict['id'] = image_id
@@ -159,6 +157,8 @@ def convert_to_coco_api(ds):
         img_dict['width'] = img.shape[-1]
         dataset['images'].append(img_dict)
         bboxes = targets["boxes"]
+        if len(bboxes) == 0:
+            continue
         bboxes[:, 2:] -= bboxes[:, :2]
         bboxes = bboxes.tolist()
         labels = targets['labels'].tolist()
